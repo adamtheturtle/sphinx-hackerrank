@@ -168,6 +168,12 @@ Publishing
 * Use a separate publishing tool to call the HackerRank API and manage credentials, question identities, candidate prompts, or projects.
 * Your publishing tool can read the generated fragments and verify saved Interviewer Guidelines.
 
+Use ``sphinx_hackerrank.html.html_equivalent`` to compare generated and saved HTML.
+It tolerates entity encoding, block indentation, and HackerRank's column-width formatting.
+Literal whitespace in code, scripts, styles, and text areas is preserved, as are spaces separating inline elements and disclosure attributes.
+``normalize_html(html=...)`` exposes the normalized representation when needed.
+The comparison can be passed as the ``notes_equal`` callback to the HackerRank SDK's ``questions.update_internal_notes()`` method.
+
 Contributing
 ------------
 
