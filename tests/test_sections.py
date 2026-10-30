@@ -6,7 +6,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 from docutils.core import publish_doctree
 from sphinx.testing.util import SphinxTestApp
 
@@ -49,26 +49,42 @@ Second prompt.
 """
 
 
-@pytest.mark.parametrize(argnames="selector", argvalues=["Q9 / Prompt", "Q1 / Missing", "Prompt", "", "#missing"])
+@pytest.mark.parametrize(
+    argnames="selector",
+    argvalues=["Q9 / Prompt", "Q1 / Missing", "Prompt", "", "#missing"],
+)
 def test_missing_or_ambiguous_sections_fail(*, selector: str) -> None:
+    """Reject selectors that do not identify exactly one section."""
     document = publish_doctree(source=_SECTION_SOURCE)
-    with pytest.raises(expected_exception=ValueError, match="Expected one guide section"):
-        select_section(document=document, selector=selector)
+    with pytest.raises(
+        expected_exception=ValueError, match="Expected one guide section"
+    ):
+        _ = select_section(document=document, selector=selector)
 
 
 def test_section_paths_labels_and_copying() -> None:
+    """Resolve headings and labels without mutating the source tree."""
     document = publish_doctree(source=_SECTION_SOURCE)
     section = select_section(document=document, selector="Q1 / Prompt")
-    assert select_section(document=document, selector="#stable-prompt") is section
+    assert (
+        select_section(document=document, selector="#stable-prompt") is section
+    )
     before = document.pformat()
     for include_heading in (True, False):
-        content = section_content(section=section, guide="guide", language="Python", include_heading=include_heading)
+        content = section_content(
+            section=section,
+            guide="guide",
+            language="Python",
+            include_heading=include_heading,
+        )
         text = "\n".join(node.astext() for node in content)
         assert "First prompt." in text
         assert "Nested details." in text
         assert "FAQ" not in text
         assert "Second prompt." not in text
-        assert "guide.html#details" in "".join(node.pformat() for node in content)
+        assert "guide.html#details" in "".join(
+            node.pformat() for node in content
+        )
         assert ("Prompt" in text) == include_heading
     assert document.pformat() == before
 
@@ -80,30 +96,47 @@ def test_section_paths_labels_and_copying() -> None:
         ("guide.txt", "", "within the source directory"),
         ("index.rst", "", "cannot include itself"),
         ("guide.rst", "", "requires :section: and :language:"),
-        ("guide.rst", ":section: Q1 / Prompt\n:language: unknown", "Expected one mini-map language config"),
+        (
+            "guide.rst",
+            ":section: Q1 / Prompt\n:language: unknown",
+            "Expected one mini-map language config",
+        ),
         ("guide.rst", ":section: Q9 / Prompt\n:language: python", "found 0"),
         ("guide.rst", ":section: Prompt\n:language: python", "found 2"),
     ],
 )
 def test_invalid_section_directives_report_errors(
-    *, make_app: Callable[..., SphinxTestApp], tmp_path: Path, filename: str, options: str, message: str
+    *,
+    make_app: Callable[..., SphinxTestApp],
+    tmp_path: Path,
+    filename: str,
+    options: str,
+    message: str,
 ) -> None:
+    """Report invalid source paths, options, and section selections."""
     source = tmp_path / "source"
     source.mkdir()
-    (source / "conf.py").write_text(
+    _ = (source / "conf.py").write_text(
         data=(
             'extensions = ["sphinx_hackerrank"]\n'
-            'jinja2_contexts = {"languages": {"original": True}, "mini_maps": {"language_configs": '
-            '[{"language": "Python", "pygments_lexer": "python"}]}}\n'
-            'hackerrank_languages = {"python": {"name": "Python", "context": {}}}\n'
+            'jinja2_contexts = {"languages": {"original": '
+            'True}, "mini_maps": {"language_configs": '
+            '[{"language": "Python", "pygments_lexer": '
+            '"python"}]}}\n'
+            'hackerrank_languages = {"python": {"name": '
+            '"Python", "context": {}}}\n'
         ),
         encoding="utf-8",
     )
-    (source / "guide.rst").write_text(data=_SECTION_SOURCE, encoding="utf-8")
-    (source / "index.rst").write_text(
+    _ = (source / "guide.rst").write_text(
+        data=_SECTION_SOURCE, encoding="utf-8"
+    )
+    _ = (source / "index.rst").write_text(
         data=(
             "Index\n=====\n\n.. toctree::\n\n   guide\n\n"
-            f".. mini-map-section:: {filename}\n" + "\n".join(f"   {option}" for option in options.splitlines()) + "\n"
+            f".. mini-map-section:: {filename}\n"
+            + "\n".join(f"   {option}" for option in options.splitlines())
+            + "\n"
         ),
         encoding="utf-8",
     )
@@ -113,23 +146,35 @@ def test_invalid_section_directives_report_errors(
     assert app.config.jinja2_contexts["languages"] == {"original": True}
 
 
-def _assert_preview_refreshes(*, app: SphinxTestApp, source: Path, fragment: Path) -> None:
+def _assert_preview_refreshes(
+    *, app: SphinxTestApp, source: Path, fragment: Path
+) -> None:
     """Preview links, mappings, and missing artifacts follow incremental
     builds.
     """
     preview_index = fragment.parent.parent / "index.html"
-    index = BeautifulSoup(markup=preview_index.read_text(encoding="utf-8"), features="html.parser")
+    index = BeautifulSoup(
+        markup=preview_index.read_text(encoding="utf-8"),
+        features="html.parser",
+    )
     link = index.find(name="a", string="Example")
-    assert link is not None
-    assert (preview_index.parent / str(object=link["href"])).resolve() == fragment.resolve()
+    assert isinstance(link, Tag)
+    assert (
+        preview_index.parent / str(object=link["href"])
+    ).resolve() == fragment.resolve()
     assert "Updated wording." in fragment.read_text(encoding="utf-8")
-    assert "HackerRank-specific content." in fragment.read_text(encoding="utf-8")
+    assert "HackerRank-specific content." in fragment.read_text(
+        encoding="utf-8"
+    )
     modified = fragment.stat().st_mtime_ns
     app.build()
     assert fragment.stat().st_mtime_ns == modified
     mapping = source / "guide-mini-map.yml"
-    mapping.write_text(
-        data=mapping.read_text(encoding="utf-8").replace("name: Example", "name: Renamed"), encoding="utf-8"
+    _ = mapping.write_text(
+        data=mapping.read_text(encoding="utf-8").replace(
+            "name: Example", "name: Renamed"
+        ),
+        encoding="utf-8",
     )
     app.build()
     assert fragment.stat().st_mtime_ns > modified
@@ -140,7 +185,9 @@ def _assert_preview_refreshes(*, app: SphinxTestApp, source: Path, fragment: Pat
     assert preview_index.is_file()
 
 
-@pytest.mark.parametrize(argnames="buildername", argvalues=["html", "hackerrank"])
+@pytest.mark.parametrize(
+    argnames="buildername", argvalues=["html", "hackerrank"]
+)
 def test_incremental_build_refreshes_the_view(
     *,
     make_app: Callable[..., SphinxTestApp],
@@ -150,7 +197,7 @@ def test_incremental_build_refreshes_the_view(
     """Changing only the main guide also rebuilds its mini-map."""
     source = tmp_path / "source"
     source.mkdir()
-    (source / "conf.py").write_text(
+    _ = (source / "conf.py").write_text(
         data="""extensions = ["sphinx_hackerrank"]
 language_configs = [
     {"language": "Python", "pygments_lexer": "python"},
@@ -164,55 +211,120 @@ jinja2_contexts = {
 suppress_warnings = ["config.cache"]
 rst_prolog = ".. |test-name| replace:: Shared guide text."
 hackerrank_languages = {
-    "python": {"name": "Python", "context": {"language_configs": language_configs[:1]}}
+    "python": {
+        "name": "Python",
+        "context": {"language_configs": language_configs[:1]},
+    }
 }
 """,
         encoding="utf-8",
     )
-    (source / "index.rst").write_text(
-        data="Index\n=====\n\n.. toctree::\n\n   guide\n   guide-mini-map\n", encoding="utf-8"
+    _ = (source / "index.rst").write_text(
+        data="Index\n=====\n\n.. toctree::\n\n   guide\n   guide-mini-map\n",
+        encoding="utf-8",
     )
-    (source / "shared-note.txt").write_text(data=".. caution:: Included caution.\n", encoding="utf-8")
+    _ = (source / "shared-note.txt").write_text(
+        data=".. caution:: Included caution.\n", encoding="utf-8"
+    )
     guide = source / "guide.rst"
-    guide.write_text(
+    _ = guide.write_text(
         data=(
-            "Guide\n=====\n\nOutside the selected section.\n\nPrompt\n~~~~~~\n\nOriginal wording.\n\n|test-name|\n\n"
+            "Guide\n"
+            "=====\n"
+            "\n"
+            "Outside the selected section.\n"
+            "\n"
+            "Prompt\n"
+            "~~~~~~\n"
+            "\n"
+            "Original wording.\n"
+            "\n"
+            "|test-name|\n"
+            "\n"
             + "\n\n".join(
                 f".. {kind}:: Hidden {kind}."
-                for kind in ("tip", "hint", "note", "warning", "attention", "important", "danger", "error")
+                for kind in (
+                    "tip",
+                    "hint",
+                    "note",
+                    "warning",
+                    "attention",
+                    "important",
+                    "danger",
+                    "error",
+                )
             )
-            + "\n\n.. admonition:: Custom admonition\n\n   Hidden custom content.\n"
-            "\n.. include:: shared-note.txt\n"
-            "\n.. jinja:: one\n\n   .. note:: Generated note.\n"
-            "\n.. code-block:: text\n\n   .. note:: Keep this literal example.\n"
-            "\n.. only:: builder_hackerrank\n\n   HackerRank-specific content.\n"
-            "\n.. only:: builder_html\n\n   Website-specific content.\n"
-            "\n.. only:: html\n\n   Shared HTML content.\n"
+            + "\n"
+            "\n"
+            ".. admonition:: Custom admonition\n"
+            "\n"
+            "   Hidden custom content.\n"
+            "\n"
+            ".. include:: shared-note.txt\n"
+            "\n"
+            ".. jinja:: one\n"
+            "\n"
+            "   .. note:: Generated note.\n"
+            "\n"
+            ".. code-block:: text\n"
+            "\n"
+            "   .. note:: Keep this literal example.\n"
+            "\n"
+            ".. only:: builder_hackerrank\n"
+            "\n"
+            "   HackerRank-specific content.\n"
+            "\n"
+            ".. only:: builder_html\n"
+            "\n"
+            "   Website-specific content.\n"
+            "\n"
+            ".. only:: html\n"
+            "\n"
+            "   Shared HTML content.\n"
         ),
         encoding="utf-8",
     )
-    (source / "guide-mini-map.rst").write_text(
+    _ = (source / "guide-mini-map.rst").write_text(
         data=(
-            "Mini\n====\n\n.. container:: hr-mini-map mini-map-python\n\n"
-            "   .. mini-map-section:: guide.rst\n      :section: Prompt\n      :language: python\n"
+            "Mini\n"
+            "====\n"
+            "\n"
+            ".. container:: hr-mini-map mini-map-python\n"
+            "\n"
+            "   .. mini-map-section:: guide.rst\n"
+            "      :section: Prompt\n"
+            "      :language: python\n"
         ),
         encoding="utf-8",
     )
-    (source / "guide-mini-map.yml").write_text(
-        data="version: 1\nquestions:\n  - language: python\n    question_id: '123'\n    name: Example\n",
+    _ = (source / "guide-mini-map.yml").write_text(
+        data="version: 1\n"
+        "questions:\n"
+        "  - language: python\n"
+        "    question_id: '123'\n"
+        "    name: Example\n",
         encoding="utf-8",
     )
     app = make_app(srcdir=source, buildername=buildername)
     app.build()
     output = Path(app.outdir) / "guide-mini-map.html"
     assert "Original wording." in output.read_text(encoding="utf-8")
-    mini = BeautifulSoup(markup=output.read_text(encoding="utf-8"), features="html.parser")
-    full = BeautifulSoup(markup=(Path(app.outdir) / "guide.html").read_text(encoding="utf-8"), features="html.parser")
-    assert full.select(selector=".admonition")
-    assert not mini.select(selector=".admonition")
+    mini = BeautifulSoup(
+        markup=output.read_text(encoding="utf-8"), features="html.parser"
+    )
+    full = BeautifulSoup(
+        markup=(Path(app.outdir) / "guide.html").read_text(encoding="utf-8"),
+        features="html.parser",
+    )
+    assert bool(full.select(selector=".admonition"))
+    assert not bool(mini.select(selector=".admonition"))
     assert "Hidden" not in mini.get_text()
     assert "Outside the selected section." not in mini.get_text()
-    assert len(app.config.jinja2_contexts["languages"]["language_configs"]) == 2
+    expected_languages = 2
+    assert (
+        len(app.config.jinja2_contexts["languages"]["language_configs"])
+        == expected_languages
+    )
     tree = app.env.get_doctree(docname="guide-mini-map")
     assert "_mini_map_guides" not in tree.attributes
     assert all(node.document is tree for node in tree.findall())
@@ -223,16 +335,23 @@ hackerrank_languages = {
     assert "Included caution" in full.get_text()
     assert "Generated note" in full.get_text()
     assert "Shared HTML content." in mini.get_text()
-    assert ("HackerRank-specific content." in mini.get_text()) == (buildername == "hackerrank")
-    assert ("Website-specific content." in mini.get_text()) == (buildername == "html")
-    guide.write_text(
-        data=guide.read_text(encoding="utf-8").replace("Original wording", "Updated wording"), encoding="utf-8"
+    assert ("HackerRank-specific content." in mini.get_text()) == (
+        buildername == "hackerrank"
+    )
+    assert ("Website-specific content." in mini.get_text()) == (
+        buildername == "html"
+    )
+    _ = guide.write_text(
+        data=guide.read_text(encoding="utf-8").replace(
+            "Original wording", "Updated wording"
+        ),
+        encoding="utf-8",
     )
     app.build()
     assert "Updated wording." in output.read_text(encoding="utf-8")
     assert "Original wording." not in output.read_text(encoding="utf-8")
     assert app.statuscode == 0
-    assert not app.warning.getvalue()
+    assert app.warning.getvalue() == ""
     fragment = Path(app.outdir) / "mini-maps" / "guide" / "python.html"
     if buildername == "hackerrank":
         _assert_preview_refreshes(app=app, source=source, fragment=fragment)

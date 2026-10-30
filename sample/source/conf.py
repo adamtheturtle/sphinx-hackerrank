@@ -2,17 +2,24 @@
 
 extensions = ["sphinx_hackerrank"]
 project = "Widget exercise"
-exclude_patterns = []
+exclude_patterns: list[str] = []
 jinja2_contexts = {
     "snippets": {
         "variants": [
             {"name": "Python", "lexer": "python", "prompt": "print('widget')"},
-            {"name": "JavaScript", "lexer": "javascript", "prompt": "console.log('widget');"},
+            {
+                "name": "JavaScript",
+                "lexer": "javascript",
+                "prompt": "console.log('widget');",
+            },
         ]
     }
 }
 hackerrank_jinja_context = "snippets"
 hackerrank_languages = {
-    variant["lexer"]: {"name": variant["name"], "context": {"variants": [variant]}}
+    variant["lexer"]: {
+        "name": variant["name"],
+        "context": {"variants": [variant]},
+    }
     for variant in jinja2_contexts["snippets"]["variants"]
 }

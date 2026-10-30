@@ -1,4 +1,6 @@
-"""Install the wheel and build an independent project without checkout imports."""
+"""Install the wheel and build an independent project without checkout
+imports.
+"""
 
 import os
 import shutil
@@ -9,17 +11,41 @@ from pathlib import Path
 
 
 def main() -> None:
+    """Install and exercise the wheel in a temporary consumer project."""
     root = Path(__file__).resolve().parents[1]
-    (wheel,) = root.joinpath("dist").glob("*.whl")
+    (wheel,) = root.joinpath("dist").glob(pattern="*.whl")
     with tempfile.TemporaryDirectory() as directory:
         temp = Path(directory)
-        subprocess.run(["uv", "venv", "--python", sys.executable, str(temp / "venv")], check=True)
-        python = temp / "venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
-        subprocess.run(["uv", "pip", "install", "--python", str(python), str(wheel)], check=True)
-        shutil.copytree(root / "examples/minimal/manual", temp / "manual")
-        subprocess.run(
-            [
-                str(python),
+        _ = subprocess.run(
+            args=[
+                "uv",
+                "venv",
+                "--python",
+                sys.executable,
+                str(object=temp / "venv"),
+            ],
+            check=True,
+        )
+        python = (
+            temp
+            / "venv"
+            / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+        )
+        _ = subprocess.run(
+            args=[
+                "uv",
+                "pip",
+                "install",
+                "--python",
+                str(object=python),
+                str(object=wheel),
+            ],
+            check=True,
+        )
+        _ = shutil.copytree(src=root / "sample/source", dst=temp / "manual")
+        _ = subprocess.run(
+            args=[
+                str(object=python),
                 "-m",
                 "sphinx",
                 "-W",
@@ -30,11 +56,17 @@ def main() -> None:
             ],
             cwd=temp,
             check=True,
-            env={key: value for key, value in os.environ.items() if key != "PYTHONPATH"},
+            env={
+                key: value
+                for key, value in os.environ.items()
+                if key != "PYTHONPATH"
+            },
         )
         assert (temp / "output/mini-maps/index.html").is_file()
         for language in ("python", "javascript"):
-            fragment = temp / f"output/mini-maps/topics/widgets/{language}.html"
+            fragment = (
+                temp / f"output/mini-maps/topics/widgets/{language}.html"
+            )
             assert "hr-mini-map" in fragment.read_text(encoding="utf-8")
         print("Installed-wheel build passed outside the checkout.")
 

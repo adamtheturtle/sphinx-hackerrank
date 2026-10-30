@@ -1,14 +1,19 @@
 """Portable HTML preserves code while resolving local and hosted links."""
 
 import pytest
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 from sphinx_hackerrank.html import render_fragment
 
 
-@pytest.mark.parametrize("source_url", [None, "https://example.org/source/"])
-@pytest.mark.parametrize("anchors", [False, True])
-def test_portable_fragment(source_url, anchors):
+@pytest.mark.parametrize(
+    argnames="source_url", argvalues=[None, "https://example.org/source/"]
+)
+@pytest.mark.parametrize(argnames="anchors", argvalues=[False, True])
+def test_portable_fragment(*, source_url: str | None, anchors: bool) -> None:
+    """Preserve code and rewrite links according to the source
+    settings.
+    """
     html = """<nav>Theme</nav><script src="theme.js"></script>
 <div class="hr-mini-map mini-map-python"><details><summary>Part 1</summary>
 <p>A participant\u2019s example.</p><a class="headerlink" href="#part">#</a>
@@ -24,21 +29,46 @@ def test_portable_fragment(source_url, anchors):
         source_suffix=".rst",
         source_anchors=anchors,
     )
-    soup = BeautifulSoup(fragment, "html.parser")
-    assert soup.select_one("pre code").get_text() == "if x < 3 && y > 0:\n"
-    assert not soup.select("nav,script,link,.mini-map-java,.headerlink,pre span")
-    assert soup.style and fragment.isascii()
+    soup = BeautifulSoup(markup=fragment, features="html.parser")
+    code = soup.select_one(selector="pre code")
+    assert code is not None
+    assert code.get_text() == "if x < 3 && y > 0:\n"
+    assert not bool(
+        soup.select(
+            selector="nav,script,link,.mini-map-java,.headerlink,pre span"
+        )
+    )
+    assert soup.style is not None
+    assert fragment.isascii()
     assert "participant\u2019s" in soup.get_text()
-    target = "../../../topics/widgets.html" if source_url is None else "https://example.org/source/topics/widgets.rst"
+    target = (
+        "../../../topics/widgets.html"
+        if source_url is None
+        else "https://example.org/source/topics/widgets.rst"
+    )
     if anchors:
         target += "#part-1"
-    assert soup.find("a", string="Guide")["href"] == target
-    assert soup.find("a", string="External")["href"] == "https://example.org"
-    assert soup.find("a", string="Local")["href"] == "#local"
-    assert soup.find("a", string="PDF")["href"] == "data.pdf"
+    expected_links = {
+        "Guide": target,
+        "External": "https://example.org",
+        "Local": "#local",
+        "PDF": "data.pdf",
+    }
+    for label, href in expected_links.items():
+        link = soup.find(name="a", string=label)
+        assert isinstance(link, Tag)
+        assert link["href"] == href
 
 
-@pytest.mark.parametrize("html", ["<p>Missing</p>", '<div class="mini-map-python"></div>' * 2])
-def test_invalid_container(html):
-    with pytest.raises(ValueError, match="Expected one mini-map"):
-        render_fragment(html=html, language="python")
+@pytest.mark.parametrize(
+    argnames="html",
+    argvalues=["<p>Missing</p>", '<div class="mini-map-python"></div>' * 2],
+)
+def test_invalid_container(*, html: str) -> None:
+    """Reject fragments without exactly one matching language
+    container.
+    """
+    with pytest.raises(
+        expected_exception=ValueError, match="Expected one mini-map"
+    ):
+        _ = render_fragment(html=html, language="python")

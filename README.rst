@@ -1,13 +1,18 @@
+|Build Status| |PyPI|
+
 sphinx-hackerrank
 =================
 
 Build portable interviewer mini-maps from maintained Sphinx guides.
-The ``hackerrank`` builder reuses Sphinx's HTML renderer and exports one
-standalone HTML fragment per question and language, plus a local preview index.
+The ``hackerrank`` builder reuses Sphinx's HTML renderer and exports one standalone HTML fragment per question and language, plus a local preview index.
 No HackerRank login or API token is required to build or preview.
+
+.. contents::
 
 Installation
 ------------
+
+``sphinx-hackerrank`` requires Python 3.12+ and Sphinx 8.2.3+.
 
 .. code-block:: console
 
@@ -23,6 +28,8 @@ Enable the installed extension in ``conf.py``:
 
 .. code-block:: python
 
+   """Sphinx configuration."""
+
    extensions = ["sphinx_hackerrank"]
 
 No ``sys.path`` changes are needed.
@@ -30,8 +37,8 @@ No ``sys.path`` changes are needed.
 Authoring
 ---------
 
-Keep the full guide and its mini-map RST beside each other. Include native
-sections by exact heading path or an existing RST section label:
+Keep the full guide and its mini-map RST beside each other.
+Include native sections by exact heading path or an existing RST section label:
 
 .. code-block:: rst
 
@@ -43,16 +50,14 @@ sections by exact heading path or an existing RST section label:
             :section: Part 1 / Prompt
             :language: python
 
-Use ``:section: #widget-prompt`` for a labelled section and
-``:include-heading:`` to retain the selected section's heading.
-Nested headings become rubrics inside disclosures. Missing or ambiguous
-selections are reported as directive errors; build with ``-W`` to reject them.
-The guide does not need extraction markers or duplicated content.
+Use ``:section: #widget-prompt`` for a labelled section and ``:include-heading:`` to retain the selected section's heading.
+Nested headings become rubrics inside disclosures.
+Build with ``-W`` to reject missing or ambiguous selections as directive errors.
+The directive selects sections from the guide without extraction markers or duplicated content.
 
-The directive uses native includes, substitutions, and the guide's existing
-Jinja templates. Variants are cached within each mini-map read and discarded
-before Sphinx persists the document tree. Guide and included-file dependencies
-are tracked for incremental builds.
+The directive uses native includes, substitutions, and the guide's existing Jinja templates.
+Variants are cached within each mini-map read and discarded before Sphinx persists the document tree.
+Guide and included-file dependencies are tracked for incremental builds.
 
 Language contexts
 -----------------
@@ -60,6 +65,8 @@ Language contexts
 Configure how each language renders the guide's Jinja context:
 
 .. code-block:: python
+
+   """Sphinx configuration."""
 
    hackerrank_jinja_context = "snippets"
    hackerrank_languages = {
@@ -69,8 +76,8 @@ Configure how each language renders the guide's Jinja context:
        },
    }
 
-``context`` overrides values in the named Jinja context while that variant is
-parsed. The original configuration is restored afterwards.
+``context`` overrides values in the configured Jinja context while that variant is parsed.
+The original configuration is restored afterwards.
 ``name`` identifies redundant language disclosures to flatten in copied content.
 All other part, category, and test-alternative disclosures remain intact.
 
@@ -81,8 +88,7 @@ The original guide's admonitions remain unchanged.
 Question mappings
 -----------------
 
-Create a mapping beside each mini-map, such as ``widgets-mini-map.yml`` beside
-``widgets-mini-map.rst``:
+Create a mapping beside each mini-map, such as ``widgets-mini-map.yml`` beside ``widgets-mini-map.rst``:
 
 .. code-block:: yaml
 
@@ -91,10 +97,10 @@ Create a mapping beside each mini-map, such as ``widgets-mini-map.yml`` beside
      - language: python
        name: Widgets - Python
 
-The default ``hackerrank_manifest_pattern`` is ``**/*-mini-map.yml``, relative
-to Sphinx's source directory. Nested directories and custom source layouts are
-supported. Extra fields such as question IDs can be managed by your publishing
-tool; the builder reads only the language and name.
+The default ``hackerrank_manifest_pattern`` is ``**/*-mini-map.yml``, relative to Sphinx's source directory.
+Nested directories and custom source layouts are supported.
+Your publishing tool can manage extra fields such as question IDs.
+The builder reads the language and name.
 
 Build and preview
 -----------------
@@ -104,13 +110,12 @@ Build and preview
    sphinx-build -W -b hackerrank docs build/hackerrank
 
 Open ``build/hackerrank/mini-maps/index.html`` to select a question and language.
-Each preview uses the same self-contained HTML that can be saved as HackerRank
-interviewer notes. Native disclosure elements work without JavaScript.
-The builder also produces ordinary themed HTML pages. The extension's directives
-work in the standard ``html`` builder too.
+Each preview uses the same self-contained HTML that can be saved as HackerRank interviewer notes.
+Native disclosure elements work without JavaScript.
+The builder also produces ordinary themed HTML pages.
+The extension's directives work in the standard ``html`` builder too.
 
-Sphinx's native ``only`` directive can select ``builder_hackerrank``,
-``builder_html``, or the shared ``html`` format tag.
+Sphinx's native ``only`` directive can select ``builder_hackerrank``, ``builder_html``, or the shared ``html`` format tag.
 
 Source links
 ------------
@@ -120,43 +125,36 @@ To target a hosted documentation or source site, configure:
 
 .. code-block:: python
 
+   """Sphinx configuration."""
+
    hackerrank_source_url = "https://example.org/guides/"
    hackerrank_source_suffix = ".html"
    hackerrank_source_anchors = True
 
-A source repository can use a different suffix, such as ``.rst``, and disable
-anchors. External URLs and links within a fragment are retained.
+A source repository can use a different suffix, such as ``.rst``, and disable anchors.
+External URLs and links within a fragment are retained.
 
 Publishing
 ----------
 
-Publishing is separate from rendering. This package does not call the HackerRank
-API or manage credentials, question identities, candidate prompts, or projects.
+Use a separate publishing tool to call the HackerRank API and manage credentials, question identities, candidate prompts, or projects.
 Your publishing tool can read the generated fragments and verify saved notes.
 
-Development
------------
+Contributing
+------------
 
-.. code-block:: console
+See `CONTRIBUTING.rst <./CONTRIBUTING.rst>`_ for setup, linting, tests, and releases.
 
-   uv run pytest --cov --cov-report=term-missing
-   uv run ruff check .
-   uv run ruff format --check .
-   uv build
-   uv run python tests/wheel_smoke.py
-
-The minimal example under ``examples/minimal/manual`` uses a custom Jinja context
-and nested guide files. The wheel smoke test installs the built wheel into a
-fresh environment and builds that example outside the checkout.
-
-To release, update the version in ``pyproject.toml`` and
-``src/sphinx_hackerrank/__init__.py``, then publish a matching GitHub release.
-The release workflow builds and checks distributions before uploading with a
-PyPI trusted publisher configured for ``release.yml`` and environment ``release``.
-Set the repository variable ``PYPI_PUBLISH_ENABLED`` to ``true`` after configuring
-the publisher. The workflow can also be dispatched with a release ``tag``.
+The sample under ``sample/source`` uses a custom Jinja context and nested guide files.
+The wheel smoke test installs the built wheel into a fresh environment and builds that sample outside the checkout.
 
 License
 -------
 
-MIT. See ``LICENSE``.
+MIT.
+See ``LICENSE``.
+
+.. |Build Status| image:: https://github.com/adamtheturtle/sphinx-hackerrank/actions/workflows/ci.yml/badge.svg?branch=main
+   :target: https://github.com/adamtheturtle/sphinx-hackerrank/actions
+.. |PyPI| image:: https://badge.fury.io/py/sphinx-hackerrank.svg
+   :target: https://badge.fury.io/py/sphinx-hackerrank
