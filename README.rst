@@ -111,7 +111,10 @@ Build and preview
 
 Open ``build/hackerrank/interviewer-guidelines/index.html`` to select a question and language.
 Each preview uses the same self-contained HTML that can be saved as HackerRank Interviewer Guidelines.
-Native disclosure elements work without JavaScript.
+Each code block has a keyboard-accessible **Copy code** button that preserves whitespace.
+Copy buttons use JavaScript bundled with the output.
+Hosts must allow that script to run for the buttons to appear.
+Native disclosure elements and code remain usable without JavaScript.
 The builder also produces ordinary themed HTML pages.
 The extension's directives work in the standard ``html`` builder too.
 

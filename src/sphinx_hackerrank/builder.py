@@ -53,6 +53,9 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
                     Path(__file__).parent
                     / "static"
                     / "interviewer_guideline.css",
+                    Path(__file__).parent
+                    / "static"
+                    / "interviewer_guideline.js",
                 )
             )
             outputs = (
