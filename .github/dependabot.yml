@@ -13,7 +13,7 @@ updates:
     # Remove this ignore when both tools support newer Docutils versions.
     ignore:
       - dependency-name: docutils
-        versions: ['>=0.22']
+        versions: ['>0.21.2']
   - package-ecosystem: github-actions
     directory: /
     schedule:
