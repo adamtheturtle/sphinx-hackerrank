@@ -2199,7 +2199,7 @@ requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.15.0" },
     { name = "docutils", specifier = ">=0.19" },
     { name = "pyyaml", specifier = ">=6.0.3" },
-    { name = "sphinx", specifier = ">=8.2.3,<10" },
+    { name = "sphinx", specifier = ">=9.1.1,<10" },
     { name = "sphinx-jinja2", specifier = ">=0.0.1" },
     { name = "sphinx-toolbox", specifier = ">=4.3,<5" },
 ]
