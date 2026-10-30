@@ -1,39 +1,42 @@
 """Build HackerRank fragments using Sphinx's standard HTML renderer."""
 
-from __future__ import annotations
-
+from collections.abc import Iterator
 from html import escape
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any, override
 
 from sphinx.builders.html import StandaloneHTMLBuilder
 
 from sphinx_hackerrank.html import fragment_path, render_fragment
-from sphinx_hackerrank.targets import load_targets
-
-if TYPE_CHECKING:
-    from collections.abc import Iterator
+from sphinx_hackerrank.targets import Target, load_targets
 
 
 class HackerRankBuilder(StandaloneHTMLBuilder):
     """Add standalone language fragments to the normal HTML output."""
 
+    # Sphinx calls init() from its builder constructor.
+    mini_map_targets: dict[str, list[Target]]  # pyrefly: ignore[uninitialized-instance-variable]
+
     name = "hackerrank"
     format = "html"
 
+    @override
     def init(self) -> None:
         """Validate all question mappings before writing any output."""
         super().init()
         self.mini_map_targets = load_targets(
-            source_dir=Path(self.srcdir), pattern=self.config.hackerrank_manifest_pattern
+            source_dir=Path(self.srcdir),
+            pattern=self.config.hackerrank_manifest_pattern,
         )
 
+    @override
     def get_outdated_docs(self) -> Iterator[str]:
         """Rebuild missing fragments and changed mappings or
         presentation.
         """
         self.mini_map_targets = load_targets(
-            source_dir=Path(self.srcdir), pattern=self.config.hackerrank_manifest_pattern
+            source_dir=Path(self.srcdir),
+            pattern=self.config.hackerrank_manifest_pattern,
         )
         outdated = set(super().get_outdated_docs())
         if not (Path(self.outdir) / "mini-maps" / "index.html").is_file():
@@ -49,17 +52,27 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
                 )
             )
             outputs = (
-                fragment_path(output_dir=Path(self.outdir), docname=docname, language=target.language)
+                fragment_path(
+                    output_dir=Path(self.outdir),
+                    docname=docname,
+                    language=target.language,
+                )
                 for target in targets
             )
-            if any(not output.is_file() or output.stat().st_mtime_ns < newest_dependency for output in outputs):
+            if any(
+                not output.is_file()
+                or output.stat().st_mtime_ns < newest_dependency
+                for output in outputs
+            ):
                 outdated.add(docname)
         return iter(sorted(outdated))
 
+    @override
     def handle_page(
         self,
         pagename: str,
-        addctx: dict[str, Any],
+        # Sphinx supplies an open-ended template context.
+        addctx: dict[str, Any],  # pyrefly: ignore[explicit-any]
         templatename: str = "page.html",
         *,
         outfilename: Path | None = None,
@@ -67,9 +80,13 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
     ) -> None:
         """Export the rendered body before the HTML theme adds chrome."""
         for target in self.mini_map_targets.get(pagename, []):
-            output_path = fragment_path(output_dir=Path(self.outdir), docname=pagename, language=target.language)
+            output_path = fragment_path(
+                output_dir=Path(self.outdir),
+                docname=pagename,
+                language=target.language,
+            )
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_text(
+            _ = output_path.write_text(
                 data=render_fragment(
                     html=addctx["body"],
                     language=target.language,
@@ -88,6 +105,7 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
             event_arg=event_arg,
         )
 
+    @override
     def finish(self) -> None:
         """Add a local preview index linking to each standalone mini-
         map.
@@ -96,21 +114,26 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
         preview_dir = Path(self.outdir) / "mini-maps"
         preview_dir.mkdir(parents=True, exist_ok=True)
         links = "\n".join(
-            f'<li><a href="{escape(s=docname.removesuffix("-mini-map"))}/{target.language}.html">'
+            f'<li><a href="{escape(s=docname.removesuffix("-mini-map"))}/'
+            f'{target.language}.html">'
             f"{escape(s=target.name)}</a></li>"
             for docname, targets in self.mini_map_targets.items()
             for target in targets
         )
-        (preview_dir / "index.html").write_text(
+        _ = (preview_dir / "index.html").write_text(
             data=(
                 '<!doctype html>\n<html lang="en"><head><meta charset="utf-8">'
-                '<meta name="viewport" content="width=device-width, initial-scale=1">'
+                '<meta name="viewport" '
+                'content="width=device-width, initial-scale=1">'
                 "<title>HackerRank mini-maps</title>"
-                "<style>body{font:16px/1.5 Arial,sans-serif;margin:2rem;max-width:60rem}"
+                "<style>body{font:16px/1.5 Arial,sans-serif;"
+                "margin:2rem;max-width:60rem}"
                 "li{margin:.5rem 0}</style></head><body><main>"
                 "<h1>HackerRank mini-maps</h1>"
-                "<p>Choose a question and language to preview its interviewer mini-map.</p>"
-                "<p>These previews use the same HTML published to HackerRank interviewer notes.</p>"
+                "<p>Choose a question and language to preview"
+                " its interviewer mini-map.</p>"
+                "<p>These previews use the same HTML published "
+                "to HackerRank interviewer notes.</p>"
                 f"<ul>{links}</ul></main></body></html>\n"
             ),
             encoding="utf-8",

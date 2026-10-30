@@ -1,10 +1,9 @@
 """Read rendering metadata without depending on an API client."""
 
-from __future__ import annotations
-
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypeGuard
 
 import yaml
 
@@ -18,32 +17,61 @@ class Target:
     metadata_path: Path
 
 
+def _is_mapping(value: object, /) -> TypeGuard[dict[object, object]]:
+    """Narrow an arbitrary YAML value to an object-valued mapping."""
+    return isinstance(value, dict)
+
+
+def _is_list(value: object, /) -> TypeGuard[list[object]]:
+    """Narrow an arbitrary YAML value to an object-valued list."""
+    return isinstance(value, list)
+
+
 def load_targets(*, source_dir: Path, pattern: str) -> dict[str, list[Target]]:
-    """Read adjacent mapping files; publishing metadata stays with the consumer."""
+    """Read adjacent mapping files; publishing metadata stays with the
+    consumer.
+    """
     targets: dict[str, list[Target]] = {}
-    for path in sorted(source_dir.glob(pattern)):
-        source = path.with_suffix(".rst")
+    for path in sorted(source_dir.glob(pattern=pattern)):
+        source = path.with_suffix(suffix=".rst")
         if not source.is_file():
-            raise ValueError(f"Missing RST source beside {path}")
-        metadata = yaml.safe_load(path.read_text(encoding="utf-8"))
-        if not isinstance(metadata, dict) or metadata.get("version") != 1:
-            raise ValueError(f"Expected version: 1 in {path}")
+            message = f"Missing RST source beside {path}"
+            raise ValueError(message)
+        metadata: object = yaml.safe_load(
+            stream=path.read_text(encoding="utf-8")
+        )
+        if not _is_mapping(metadata) or metadata.get("version") != 1:
+            message = f"Expected version: 1 in {path}"
+            raise ValueError(message)
         questions = metadata.get("questions")
-        if not isinstance(questions, list) or not questions:
-            raise ValueError(f"Expected nonempty questions list in {path}")
+        if not _is_list(questions) or not bool(questions):
+            message = f"Expected nonempty questions list in {path}"
+            raise ValueError(message)
         document: list[Target] = []
         seen: set[str] = set()
         for question in questions:
-            if not isinstance(question, dict):
-                raise ValueError(f"Expected a question mapping in {path}")
+            if not _is_mapping(question):
+                message = f"Expected a question mapping in {path}"
+                raise ValueError(message)
             language, name = question.get("language"), question.get("name")
-            if not isinstance(language, str) or re.fullmatch(r"[a-z][a-z0-9]*", language) is None:
-                raise ValueError(f"Invalid language in {path}: {language!r}")
-            if not isinstance(name, str) or not name.strip():
-                raise ValueError(f"Expected a question name in {path}")
+            if (
+                not isinstance(language, str)
+                or re.fullmatch(pattern=r"[a-z][a-z0-9]*", string=language)
+                is None
+            ):
+                message = f"Invalid language in {path}: {language!r}"
+                raise ValueError(message)
+            if not isinstance(name, str) or not bool(name.strip()):
+                message = f"Expected a question name in {path}"
+                raise ValueError(message)
             if language in seen:
-                raise ValueError(f"Duplicate language {language!r} in {path}")
+                message = f"Duplicate language {language!r} in {path}"
+                raise ValueError(message)
             seen.add(language)
-            document.append(Target(language, name, path))
-        targets[source.relative_to(source_dir).with_suffix("").as_posix()] = document
+            document.append(
+                Target(language=language, name=name, metadata_path=path)
+            )
+        targets[
+            source.relative_to(source_dir).with_suffix(suffix="").as_posix()
+        ] = document
     return targets
