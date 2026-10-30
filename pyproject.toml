@@ -384,6 +384,8 @@ show_traceback = true
 num_workers = "auto"
 
 [tool.pyrefly]
+# Include the test package alongside the installed source package.
+search-path = [ "src", "." ]
 errors.non-exhaustive-match = "error"
 enabled-ignores = [ "pyrefly" ]
 preset = "all"

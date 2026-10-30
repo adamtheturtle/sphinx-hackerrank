@@ -8,11 +8,11 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from bs4 import BeautifulSoup, Tag
 from docutils.core import publish_doctree
 from sphinx.testing.util import SphinxTestApp
 
-from sphinx_hackerrank.sections import section_content, select_section
+from sphinx_hackerrank.sections import select_section
+from tests.builds import build_expected, write_sources
 
 _SECTION_SOURCE = textwrap.dedent(
     text="""\
@@ -67,58 +67,94 @@ def test_missing_or_ambiguous_sections_fail(*, selector: str) -> None:
         _ = select_section(document=document, selector=selector)
 
 
-def test_section_paths_labels_and_copying() -> None:
-    """Resolve headings and labels without mutating the source tree."""
-    document = publish_doctree(source=_SECTION_SOURCE)
-    section = select_section(document=document, selector="Q1 / Prompt")
-    assert (
-        select_section(document=document, selector="#stable-prompt") is section
-    )
-    before = document.pformat()
-    for include_heading in (True, False):
-        content = section_content(
-            section=section,
-            guide="guide",
-            language="Python",
-            include_heading=include_heading,
-            exclude_sections=(),
-        )
-        text = "\n".join(node.astext() for node in content)
-        assert "First prompt." in text
-        assert "Nested details." in text
-        assert "FAQ" not in text
-        assert "Second prompt." not in text
-        assert "guide.html#details" in "".join(
-            node.pformat() for node in content
-        )
-        assert ("Prompt" in text) == include_heading
-    assert document.pformat() == before
-
-
+@pytest.mark.parametrize(
+    argnames="selector", argvalues=["Q1 / Prompt", "#stable-prompt"]
+)
+@pytest.mark.parametrize(argnames="include_heading", argvalues=[False, True])
 @pytest.mark.parametrize(
     argnames="exclusions",
-    argvalues=[("Details",), ("#details",), ("Details", "Details")],
+    argvalues=[(), ("Details",), ("#details",), ("Details", "Details")],
 )
-def test_exclude_subsections_without_changing_the_source(
-    *, exclusions: tuple[str, ...]
+def test_section_matches_native_rst(
+    *,
+    make_app: Callable[..., SphinxTestApp],
+    tmp_path: Path,
+    selector: str,
+    include_heading: bool,
+    exclusions: tuple[str, ...],
 ) -> None:
-    """A parent can omit a child that can still be selected separately."""
-    document = publish_doctree(source=_SECTION_SOURCE)
-    section = select_section(document=document, selector="Q1 / Prompt")
-    before = document.pformat()
-    content = section_content(
-        section=section,
-        guide="guide",
-        language="Python",
-        include_heading=False,
-        exclude_sections=exclusions,
+    """Selected sections render like independently written native RST."""
+    index = textwrap.dedent(
+        text="""\
+        Index
+        =====
+
+        .. toctree::
+
+           guide
+
+        """
     )
-    text = "\n".join(node.astext() for node in content)
-    assert "First prompt." in text
-    assert "Nested details." not in text
-    assert document.pformat() == before
-    child = select_section(document=document, selector="Q1 / Prompt / Details")
-    assert "Nested details." in child.astext()
+    expanded = textwrap.dedent(
+        text="""\
+        First prompt.
+
+        See `Details <guide.html#details>`_.
+        """
+    )
+    if not bool(exclusions):
+        expanded += "\n.. rubric:: Details\n\nNested details.\n"
+    if include_heading:
+        expanded = ".. rubric:: Prompt\n\n" + expanded
+    if bool(exclusions):
+        expanded += "\nNested details.\n"
+    expected = build_expected(
+        make_app=make_app,
+        source=tmp_path / "expected",
+        files={"index.rst": index + expanded, "guide.rst": _SECTION_SOURCE},
+        confoverrides={},
+        docnames=["index", "guide"],
+    )
+    directive = textwrap.dedent(
+        text=f"""\
+        .. interviewer-guideline-section:: guide.rst
+           :section: {selector}
+           :language: python
+        """
+    )
+    if include_heading:
+        directive += "   :include-heading:\n"
+    if bool(exclusions):
+        directive += (
+            "   :exclude-sections: "
+            + "\n                      ".join(exclusions)
+            + "\n\n"
+        )
+        directive += textwrap.dedent(
+            text="""\
+            .. interviewer-guideline-section:: guide.rst
+               :section: Q1 / Prompt / Details
+               :language: python
+            """
+        )
+    source = tmp_path / "actual"
+    write_sources(
+        source=source,
+        files={"index.rst": index + directive, "guide.rst": _SECTION_SOURCE},
+    )
+    app = make_app(
+        srcdir=source,
+        exception_on_warning=True,
+        confoverrides={
+            "extensions": ["sphinx_hackerrank"],
+            "hackerrank_languages": {"python": {"name": "Python"}},
+        },
+    )
+    app.build()
+    for docname, html in expected.items():
+        assert (Path(app.outdir) / f"{docname}.html").read_text(
+            encoding="utf-8"
+        ) == html
 
 
 @pytest.mark.parametrize(
@@ -216,19 +252,8 @@ def _assert_preview_refreshes(
     builds.
     """
     preview_index = fragment.parent.parent / "index.html"
-    index = BeautifulSoup(
-        markup=preview_index.read_text(encoding="utf-8"),
-        features="html.parser",
-    )
-    link = index.find(name="a", string="Example")
-    assert isinstance(link, Tag)
-    assert (
-        preview_index.parent / str(object=link["href"])
-    ).resolve() == fragment.resolve()
-    assert "Updated wording." in fragment.read_text(encoding="utf-8")
-    assert "HackerRank-specific content." in fragment.read_text(
-        encoding="utf-8"
-    )
+    original = fragment.read_text(encoding="utf-8")
+    original_index = preview_index.read_text(encoding="utf-8")
     modified = fragment.stat().st_mtime_ns
     app.build()
     assert fragment.stat().st_mtime_ns == modified
@@ -244,8 +269,8 @@ def _assert_preview_refreshes(
     fragment.unlink()
     preview_index.unlink()
     app.build()
-    assert "Updated wording." in fragment.read_text(encoding="utf-8")
-    assert preview_index.is_file()
+    assert fragment.read_text(encoding="utf-8") == original
+    assert preview_index.read_text(encoding="utf-8") != original_index
 
 
 @pytest.mark.parametrize(
@@ -378,6 +403,63 @@ def test_incremental_build_refreshes_the_view(
         {"language": "Python", "pygments_lexer": "python"},
         {"language": "Java", "pygments_lexer": "java"},
     ]
+    audience = "HackerRank" if buildername == "hackerrank" else "Website"
+    native_guideline = textwrap.dedent(
+        text=f"""\
+        Interviewer Guideline
+        =====================
+
+        .. container:: {classes}
+
+           Original wording.
+
+           Shared guide text.
+
+           .. code-block:: text
+
+              .. note:: Keep this literal example.
+
+           {audience}-specific content.
+
+           Shared HTML content.
+        """
+    )
+    native_guide = guide.read_text(encoding="utf-8")
+    if buildername == "hackerrank":
+        native_guide = native_guide.replace(
+            "builder_html", "unused_builder"
+        ).replace("builder_hackerrank", "builder_html")
+    expected_pages = [
+        build_expected(
+            make_app=make_app,
+            source=tmp_path / f"expected-{wording}",
+            files={
+                "index.rst": (source / "index.rst").read_text(
+                    encoding="utf-8"
+                ),
+                "guide.rst": native_guide.replace(
+                    "Original wording", f"{wording} wording"
+                ),
+                "shared-note.txt": (source / "shared-note.txt").read_text(
+                    encoding="utf-8"
+                ),
+                "guide-interviewer-guideline.rst": native_guideline.replace(
+                    "Original wording", f"{wording} wording"
+                ),
+            },
+            confoverrides={
+                "html_context": {"builder": buildername},
+                "jinja2_contexts": {
+                    "one": {},
+                    "languages": {"language_configs": language_configs},
+                },
+                "rst_prolog": ".. |test-name| replace:: Shared guide text.",
+                "suppress_warnings": ["config.cache"],
+            },
+            docnames=["index", "guide", "guide-interviewer-guideline"],
+        )
+        for wording in ("Original", "Updated")
+    ]
     app = make_app(
         srcdir=source,
         buildername=buildername,
@@ -401,19 +483,10 @@ def test_incremental_build_refreshes_the_view(
         },
     )
     app.build()
-    output = Path(app.outdir) / "guide-interviewer-guideline.html"
-    assert "Original wording." in output.read_text(encoding="utf-8")
-    guideline = BeautifulSoup(
-        markup=output.read_text(encoding="utf-8"), features="html.parser"
-    )
-    full = BeautifulSoup(
-        markup=(Path(app.outdir) / "guide.html").read_text(encoding="utf-8"),
-        features="html.parser",
-    )
-    assert bool(full.select(selector=".admonition"))
-    assert not bool(guideline.select(selector=".admonition"))
-    assert "Hidden" not in guideline.get_text()
-    assert "Outside the selected section." not in guideline.get_text()
+    for docname, html in expected_pages[0].items():
+        assert (Path(app.outdir) / f"{docname}.html").read_text(
+            encoding="utf-8"
+        ) == html
     expected_languages = 2
     assert (
         len(app.config.jinja2_contexts["languages"]["language_configs"])
@@ -422,19 +495,6 @@ def test_incremental_build_refreshes_the_view(
     tree = app.env.get_doctree(docname="guide-interviewer-guideline")
     assert "_interviewer_guideline_guides" not in tree.attributes
     assert all(node.document is tree for node in tree.findall())
-    assert "Included caution" not in guideline.get_text()
-    assert "Generated note" not in guideline.get_text()
-    assert "Keep this literal example" in guideline.get_text()
-    assert "Shared guide text." in guideline.get_text()
-    assert "Included caution" in full.get_text()
-    assert "Generated note" in full.get_text()
-    assert "Shared HTML content." in guideline.get_text()
-    assert ("HackerRank-specific content." in guideline.get_text()) == (
-        buildername == "hackerrank"
-    )
-    assert ("Website-specific content." in guideline.get_text()) == (
-        buildername == "html"
-    )
     _ = guide.write_text(
         data=guide.read_text(encoding="utf-8").replace(
             "Original wording", "Updated wording"
@@ -442,8 +502,10 @@ def test_incremental_build_refreshes_the_view(
         encoding="utf-8",
     )
     app.build()
-    assert "Updated wording." in output.read_text(encoding="utf-8")
-    assert "Original wording." not in output.read_text(encoding="utf-8")
+    for docname, html in expected_pages[1].items():
+        assert (Path(app.outdir) / f"{docname}.html").read_text(
+            encoding="utf-8"
+        ) == html
     assert app.statuscode == 0
     assert app.warning.getvalue() == ""
     fragment = (

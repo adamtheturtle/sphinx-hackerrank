@@ -11,6 +11,7 @@ from docutils import nodes
 from docutils.parsers.rst import Parser, directives
 from docutils.transforms.references import (
     AnonymousHyperlinks,
+    DanglingReferences,
     ExternalTargets,
     IndirectHyperlinks,
     InternalTargets,
@@ -273,6 +274,7 @@ class InterviewerGuidelineSection(SphinxDirective):
                 IndirectHyperlinks,
                 ExternalTargets,
                 InternalTargets,
+                DanglingReferences,
             ):
                 transform(document=document).apply()
         finally:
