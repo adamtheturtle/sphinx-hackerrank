@@ -1,8 +1,10 @@
 """Sphinx extension for portable HackerRank Interviewer Guidelines."""
 
 from importlib.metadata import version
+from pathlib import Path
 
 from sphinx.application import Sphinx
+from sphinx.config import Config
 
 from sphinx_hackerrank.builder import HackerRankBuilder
 from sphinx_hackerrank.sections import (
@@ -14,12 +16,23 @@ from sphinx_hackerrank.sections import (
 __version__ = version(distribution_name="sphinx-hackerrank")
 
 
+def _add_static_path(_app: Sphinx, config: Config) -> None:
+    """Make the guideline assets available to themed HTML pages."""
+    config.html_static_path = [
+        *config.html_static_path,
+        str(object=Path(__file__).parent / "static"),
+    ]
+
+
 def setup(app: Sphinx) -> dict[str, object]:
     """Register the builder, directive, and project-independent
     settings.
     """
     app.setup_extension(extname="sphinx_jinja2")
     app.setup_extension(extname="sphinx_toolbox.collapse")
+    _ = app.connect(event="config-inited", callback=_add_static_path)
+    app.add_css_file(filename="interviewer_guideline.css")
+    app.add_js_file(filename="interviewer_guideline.js")
     app.add_config_value(
         name="hackerrank_manifest_pattern",
         default="**/*-interviewer-guideline.yml",

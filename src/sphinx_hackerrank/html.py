@@ -66,6 +66,8 @@ def render_fragment(
             if source_anchors and bool(url.fragment):
                 destination += "#" + url.fragment
             link["href"] = destination
+    for line_number in container.select(selector=".linenos"):
+        line_number.decompose()
     for pre in container.find_all(name="pre"):
         code = soup.new_tag(name="code")
         code.string = pre.get_text()
@@ -81,4 +83,12 @@ def render_fragment(
         .joinpath("static/interviewer_guideline.css")
         .read_text(encoding="utf-8")
     )
-    return f'<style type="text/css">{style}</style>\n{fragment}\n'
+    script = (
+        files(anchor="sphinx_hackerrank")
+        .joinpath("static/interviewer_guideline.js")
+        .read_text(encoding="utf-8")
+    )
+    return (
+        f'<style type="text/css">{style}</style>\n{fragment}\n'
+        f'<script data-hr-copy-code="">{script}</script>\n'
+    )

@@ -14,13 +14,15 @@ def test_portable_fragment(*, source_url: str | None, anchors: bool) -> None:
     """Preserve code and rewrite links according to the source
     settings.
     """
-    html = """<nav>Theme</nav><script src="theme.js"></script>
+    line_number = '<span class="linenos">1</span>'
+    html = f"""<nav>Theme</nav><script src="theme.js"></script>
 <div class="hr-interviewer-guideline interviewer-guideline-python">
 <details><summary>Part 1</summary>
 <p>A participant\u2019s example.</p><a class="headerlink" href="#part">#</a>
 <a href="widgets.html#part-1">Guide</a><a href="https://example.org">External</a>
 <a href="#local">Local</a><a href="data.pdf">PDF</a>
-<pre><span>if x &lt; 3 &amp;&amp; y &gt; 0:</span>\n</pre></details></div>
+<pre>{line_number}<span>if x &lt; 3 &amp;&amp; y &gt; 0:</span>\n</pre>
+</details></div>
 <div class="interviewer-guideline-java">Other language</div>"""
     fragment = render_fragment(
         html=html,
@@ -36,11 +38,15 @@ def test_portable_fragment(*, source_url: str | None, anchors: bool) -> None:
     assert code.get_text() == "if x < 3 && y > 0:\n"
     assert not bool(
         soup.select(
-            selector="nav,script,link,.interviewer-guideline-java,"
+            selector="nav,link,.interviewer-guideline-java,"
             ".headerlink,pre span"
         )
     )
     assert soup.style is not None
+    script = soup.select_one(selector="script[data-hr-copy-code]")
+    assert script is not None
+    assert "src" not in script.attrs
+    assert len(soup.select(selector="script")) == 1
     assert fragment.isascii()
     assert "participant\u2019s" in soup.get_text()
     target = (

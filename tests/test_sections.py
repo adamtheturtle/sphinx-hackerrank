@@ -3,6 +3,7 @@ language-specific
 inputs.
 """
 
+import textwrap
 from collections.abc import Callable
 from pathlib import Path
 
@@ -13,41 +14,44 @@ from sphinx.testing.util import SphinxTestApp
 
 from sphinx_hackerrank.sections import section_content, select_section
 
-_SECTION_SOURCE = """Guide
-=====
+_SECTION_SOURCE = textwrap.dedent(
+    text="""\
+    Guide
+    =====
 
-Q1
---
+    Q1
+    --
 
-.. _stable-prompt:
+    .. _stable-prompt:
 
-Prompt
-~~~~~~
+    Prompt
+    ~~~~~~
 
-First prompt.
+    First prompt.
 
-.. _extra-target:
+    .. _extra-target:
 
-See Details_.
+    See Details_.
 
-Details
-^^^^^^^
+    Details
+    ^^^^^^^
 
-Nested details.
+    Nested details.
 
-FAQ
-~~~
+    FAQ
+    ~~~
 
-First FAQ.
+    First FAQ.
 
-Q2
---
+    Q2
+    --
 
-Prompt
-~~~~~~
+    Prompt
+    ~~~~~~
 
-Second prompt.
-"""
+    Second prompt.
+    """
+)
 
 
 @pytest.mark.parametrize(
@@ -117,31 +121,46 @@ def test_invalid_section_directives_report_errors(
     """Report invalid source paths, options, and section selections."""
     source = tmp_path / "source"
     source.mkdir()
-    _ = (source / "conf.py").write_text(
-        data=(
-            'extensions = ["sphinx_hackerrank"]\n'
-            'jinja2_contexts = {"languages": {"original": '
-            'True}, "interviewer_guidelines": {"language_configs": '
-            '[{"language": "Python", "pygments_lexer": '
-            '"python"}]}}\n'
-            'hackerrank_languages = {"python": {"name": '
-            '"Python", "context": {}}}\n'
-        ),
-        encoding="utf-8",
-    )
+    (source / "conf.py").touch()
     _ = (source / "guide.rst").write_text(
         data=_SECTION_SOURCE, encoding="utf-8"
     )
     _ = (source / "index.rst").write_text(
         data=(
-            "Index\n=====\n\n.. toctree::\n\n   guide\n\n"
-            f".. interviewer-guideline-section:: {filename}\n"
+            textwrap.dedent(
+                text=f"""\
+                Index
+                =====
+
+                .. toctree::
+
+                   guide
+
+                .. interviewer-guideline-section:: {filename}
+                """
+            )
             + "\n".join(f"   {option}" for option in options.splitlines())
             + "\n"
         ),
         encoding="utf-8",
     )
-    app = make_app(srcdir=source)
+    app = make_app(
+        srcdir=source,
+        confoverrides={
+            "extensions": ["sphinx_hackerrank"],
+            "jinja2_contexts": {
+                "languages": {"original": True},
+                "interviewer_guidelines": {
+                    "language_configs": [
+                        {"language": "Python", "pygments_lexer": "python"},
+                    ],
+                },
+            },
+            "hackerrank_languages": {
+                "python": {"name": "Python", "context": {}},
+            },
+        },
+    )
     app.build()
     assert message in app.warning.getvalue()
     assert app.config.jinja2_contexts["languages"] == {"original": True}
@@ -200,117 +219,144 @@ def test_incremental_build_refreshes_the_view(
     """
     source = tmp_path / "source"
     source.mkdir()
-    _ = (source / "conf.py").write_text(
-        data="""extensions = ["sphinx_hackerrank"]
-language_configs = [
-    {"language": "Python", "pygments_lexer": "python"},
-    {"language": "Java", "pygments_lexer": "java"},
-]
-jinja2_contexts = {
-    "one": {},
-    "languages": {"language_configs": language_configs},
-    "interviewer_guidelines": {"language_configs": language_configs[:1]},
-}
-suppress_warnings = ["config.cache"]
-rst_prolog = ".. |test-name| replace:: Shared guide text."
-hackerrank_languages = {
-    "python": {
-        "name": "Python",
-        "context": {"language_configs": language_configs[:1]},
-    }
-}
-""",
-        encoding="utf-8",
-    )
+    (source / "conf.py").touch()
     _ = (source / "index.rst").write_text(
-        data="Index\n=====\n\n.. toctree::\n\n   guide\n"
-        "   guide-interviewer-guideline\n",
+        data=textwrap.dedent(
+            text="""\
+            Index
+            =====
+
+            .. toctree::
+
+               guide
+               guide-interviewer-guideline
+            """
+        ),
         encoding="utf-8",
     )
     _ = (source / "shared-note.txt").write_text(
         data=".. caution:: Included caution.\n", encoding="utf-8"
     )
     guide = source / "guide.rst"
+    admonitions = "\n\n".join(
+        f".. {kind}:: Hidden {kind}."
+        for kind in (
+            "tip",
+            "hint",
+            "note",
+            "warning",
+            "attention",
+            "important",
+            "danger",
+            "error",
+        )
+    )
     _ = guide.write_text(
         data=(
-            "Guide\n"
-            "=====\n"
-            "\n"
-            "Outside the selected section.\n"
-            "\n"
-            "Prompt\n"
-            "~~~~~~\n"
-            "\n"
-            "Original wording.\n"
-            "\n"
-            "|test-name|\n"
-            "\n"
-            + "\n\n".join(
-                f".. {kind}:: Hidden {kind}."
-                for kind in (
-                    "tip",
-                    "hint",
-                    "note",
-                    "warning",
-                    "attention",
-                    "important",
-                    "danger",
-                    "error",
-                )
+            textwrap.dedent(
+                text="""\
+                Guide
+                =====
+
+                Outside the selected section.
+
+                Prompt
+                ~~~~~~
+
+                Original wording.
+
+                |test-name|
+
+                """
             )
-            + "\n"
-            "\n"
-            ".. admonition:: Custom admonition\n"
-            "\n"
-            "   Hidden custom content.\n"
-            "\n"
-            ".. include:: shared-note.txt\n"
-            "\n"
-            ".. jinja:: one\n"
-            "\n"
-            "   .. note:: Generated note.\n"
-            "\n"
-            ".. code-block:: text\n"
-            "\n"
-            "   .. note:: Keep this literal example.\n"
-            "\n"
-            ".. only:: builder_hackerrank\n"
-            "\n"
-            "   HackerRank-specific content.\n"
-            "\n"
-            ".. only:: builder_html\n"
-            "\n"
-            "   Website-specific content.\n"
-            "\n"
-            ".. only:: html\n"
-            "\n"
-            "   Shared HTML content.\n"
+            + admonitions
+            + "\n\n"
+            + textwrap.dedent(
+                text="""\
+                .. admonition:: Custom admonition
+
+                   Hidden custom content.
+
+                .. include:: shared-note.txt
+
+                .. jinja:: one
+
+                   .. note:: Generated note.
+
+                .. code-block:: text
+
+                   .. note:: Keep this literal example.
+
+                .. only:: builder_hackerrank
+
+                   HackerRank-specific content.
+
+                .. only:: builder_html
+
+                   Website-specific content.
+
+                .. only:: html
+
+                   Shared HTML content.
+                """
+            )
         ),
         encoding="utf-8",
     )
+    classes = "hr-interviewer-guideline interviewer-guideline-python"
     _ = (source / "guide-interviewer-guideline.rst").write_text(
-        data=(
-            "Interviewer Guideline\n"
-            "=====================\n"
-            "\n"
-            ".. container:: hr-interviewer-guideline "
-            "interviewer-guideline-python\n"
-            "\n"
-            "   .. interviewer-guideline-section:: guide.rst\n"
-            "      :section: Prompt\n"
-            "      :language: python\n"
+        data=textwrap.dedent(
+            text=f"""\
+            Interviewer Guideline
+            =====================
+
+            .. container:: {classes}
+
+               .. interviewer-guideline-section:: guide.rst
+                  :section: Prompt
+                  :language: python
+            """
         ),
         encoding="utf-8",
     )
     _ = (source / "guide-interviewer-guideline.yml").write_text(
-        data="version: 1\n"
-        "questions:\n"
-        "  - language: python\n"
-        "    question_id: '123'\n"
-        "    name: Example\n",
+        data=textwrap.dedent(
+            text="""\
+            version: 1
+            questions:
+              - language: python
+                question_id: '123'
+                name: Example
+            """
+        ),
         encoding="utf-8",
     )
-    app = make_app(srcdir=source, buildername=buildername)
+    language_configs = [
+        {"language": "Python", "pygments_lexer": "python"},
+        {"language": "Java", "pygments_lexer": "java"},
+    ]
+    app = make_app(
+        srcdir=source,
+        buildername=buildername,
+        confoverrides={
+            "extensions": ["sphinx_hackerrank"],
+            "jinja2_contexts": {
+                "one": {},
+                "languages": {"language_configs": language_configs},
+                "interviewer_guidelines": {
+                    "language_configs": language_configs[:1],
+                },
+            },
+            "suppress_warnings": ["config.cache"],
+            "rst_prolog": ".. |test-name| replace:: Shared guide text.",
+            "hackerrank_languages": {
+                "python": {
+                    "name": "Python",
+                    "context": {"language_configs": language_configs[:1]},
+                },
+            },
+        },
+    )
     app.build()
     output = Path(app.outdir) / "guide-interviewer-guideline.html"
     assert "Original wording." in output.read_text(encoding="utf-8")
