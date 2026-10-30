@@ -41,7 +41,7 @@ dependencies = [
     "pyyaml>=6.0.3",
     "sphinx>=8.2.3,<10",
     "sphinx-jinja2>=0.0.1",
-    "sphinx-toolbox>=4.3,<5",
+    "sphinx-toolbox>=4.3.1,<5",
 ]
 urls.Issues = "https://github.com/adamtheturtle/sphinx-hackerrank/issues"
 urls.Source = "https://github.com/adamtheturtle/sphinx-hackerrank"
