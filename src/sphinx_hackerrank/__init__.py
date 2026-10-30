@@ -10,7 +10,7 @@ from sphinx_hackerrank.sections import MiniMapSection, discard_guide_cache, simp
 if TYPE_CHECKING:
     from sphinx.application import Sphinx
 
-__version__ = "2026.10.30"
+__version__ = "2026.10.30.1"
 
 
 def setup(app: Sphinx) -> dict[str, object]:

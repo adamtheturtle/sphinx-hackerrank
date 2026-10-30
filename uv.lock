@@ -1277,7 +1277,7 @@ wheels = [
 
 [[package]]
 name = "sphinx-hackerrank"
-version = "2026.10.30"
+version = "2026.10.30.1"
 source = { editable = "." }
 dependencies = [
     { name = "beautifulsoup4" },
