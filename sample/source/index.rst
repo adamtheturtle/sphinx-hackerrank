@@ -4,4 +4,4 @@ Widget exercise
 .. toctree::
 
    topics/widgets
-   topics/widgets-mini-map
+   topics/widgets-interviewer-guideline

@@ -62,12 +62,16 @@ def main() -> None:
                 if key != "PYTHONPATH"
             },
         )
-        assert (temp / "output/mini-maps/index.html").is_file()
+        assert (temp / "output/interviewer-guidelines/index.html").is_file()
         for language in ("python", "javascript"):
             fragment = (
-                temp / f"output/mini-maps/topics/widgets/{language}.html"
+                temp
+                / "output/interviewer-guidelines/topics/widgets"
+                / f"{language}.html"
             )
-            assert "hr-mini-map" in fragment.read_text(encoding="utf-8")
+            assert "hr-interviewer-guideline" in fragment.read_text(
+                encoding="utf-8"
+            )
         print("Installed-wheel build passed outside the checkout.")
 
 

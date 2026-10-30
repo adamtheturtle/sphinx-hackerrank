@@ -1,21 +1,21 @@
-.hr-mini-map {
+.hr-interviewer-guideline {
   font-family: Arial, sans-serif;
   line-height: 1.5;
   padding: 10px;
 }
-.hr-mini-map details {
+.hr-interviewer-guideline details {
   margin-bottom: 12px;
 }
-.hr-mini-map summary {
+.hr-interviewer-guideline summary {
   cursor: pointer;
   font-size: 16px;
   font-weight: bold;
 }
-.hr-mini-map .rubric {
+.hr-interviewer-guideline .rubric {
   font-weight: bold;
   margin-top: 1em;
 }
-.hr-mini-map pre {
+.hr-interviewer-guideline pre {
   background: #f5f5f5;
   border: 1px solid #ddd;
   color: #222;
@@ -23,12 +23,12 @@
   padding: 10px;
   white-space: pre;
 }
-.hr-mini-map table {
+.hr-interviewer-guideline table {
   border-collapse: collapse;
   width: 100%;
 }
-.hr-mini-map th,
-.hr-mini-map td {
+.hr-interviewer-guideline th,
+.hr-interviewer-guideline td {
   border: 1px solid #ddd;
   padding: 8px;
   text-align: left;

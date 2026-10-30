@@ -3,7 +3,7 @@
 sphinx-hackerrank
 =================
 
-Build portable interviewer mini-maps from maintained Sphinx guides.
+Build portable Interviewer Guidelines from maintained Sphinx guides.
 The ``hackerrank`` builder reuses Sphinx's HTML renderer and exports one standalone HTML fragment per question and language, plus a local preview index.
 No HackerRank login or API token is required to build or preview.
 
@@ -12,7 +12,7 @@ No HackerRank login or API token is required to build or preview.
 Installation
 ------------
 
-``sphinx-hackerrank`` requires Python 3.12+ and Sphinx 8.2.3+.
+``sphinx-hackerrank`` requires Python 3.12+ and Sphinx 9.1.1+.
 
 .. code-block:: console
 
@@ -37,16 +37,16 @@ No ``sys.path`` changes are needed.
 Authoring
 ---------
 
-Keep the full guide and its mini-map RST beside each other.
+Keep the full guide and its Interviewer Guideline RST beside each other.
 Include native sections by exact heading path or an existing RST section label:
 
 .. code-block:: rst
 
-   .. container:: hr-mini-map mini-map-python
+   .. container:: hr-interviewer-guideline interviewer-guideline-python
 
       .. collapse:: Prompt
 
-         .. mini-map-section:: widgets.rst
+         .. interviewer-guideline-section:: widgets.rst
             :section: Part 1 / Prompt
             :language: python
 
@@ -56,7 +56,7 @@ Build with ``-W`` to reject missing or ambiguous selections as directive errors.
 The directive selects sections from the guide without extraction markers or duplicated content.
 
 The directive uses native includes, substitutions, and the guide's existing Jinja templates.
-Variants are cached within each mini-map read and discarded before Sphinx persists the document tree.
+Variants are cached within each Interviewer Guideline read and discarded before Sphinx persists the document tree.
 Guide and included-file dependencies are tracked for incremental builds.
 
 Language contexts
@@ -81,14 +81,14 @@ The original configuration is restored afterwards.
 ``name`` identifies redundant language disclosures to flatten in copied content.
 All other part, category, and test-alternative disclosures remain intact.
 
-By default, admonitions are omitted within ``hr-mini-map`` containers.
+By default, admonitions are omitted within ``hr-interviewer-guideline`` containers.
 Set ``hackerrank_exclude_admonitions = False`` to retain them.
 The original guide's admonitions remain unchanged.
 
 Question mappings
 -----------------
 
-Create a mapping beside each mini-map, such as ``widgets-mini-map.yml`` beside ``widgets-mini-map.rst``:
+Create a mapping beside each Interviewer Guideline, such as ``widgets-interviewer-guideline.yml`` beside ``widgets-interviewer-guideline.rst``:
 
 .. code-block:: yaml
 
@@ -97,7 +97,7 @@ Create a mapping beside each mini-map, such as ``widgets-mini-map.yml`` beside `
      - language: python
        name: Widgets - Python
 
-The default ``hackerrank_manifest_pattern`` is ``**/*-mini-map.yml``, relative to Sphinx's source directory.
+The default ``hackerrank_manifest_pattern`` is ``**/*-interviewer-guideline.yml``, relative to Sphinx's source directory.
 Nested directories and custom source layouts are supported.
 Your publishing tool can manage extra fields such as question IDs.
 The builder reads the language and name.
@@ -109,8 +109,8 @@ Build and preview
 
    sphinx-build -W -b hackerrank docs build/hackerrank
 
-Open ``build/hackerrank/mini-maps/index.html`` to select a question and language.
-Each preview uses the same self-contained HTML that can be saved as HackerRank interviewer notes.
+Open ``build/hackerrank/interviewer-guidelines/index.html`` to select a question and language.
+Each preview uses the same self-contained HTML that can be saved as HackerRank Interviewer Guidelines.
 Native disclosure elements work without JavaScript.
 The builder also produces ordinary themed HTML pages.
 The extension's directives work in the standard ``html`` builder too.
@@ -138,7 +138,7 @@ Publishing
 ----------
 
 Use a separate publishing tool to call the HackerRank API and manage credentials, question identities, candidate prompts, or projects.
-Your publishing tool can read the generated fragments and verify saved notes.
+Your publishing tool can read the generated fragments and verify saved Interviewer Guidelines.
 
 Contributing
 ------------
