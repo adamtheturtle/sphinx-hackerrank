@@ -149,11 +149,8 @@ class InterviewerGuidelineSection(SphinxDirective):
         "exclude-sections": directives.unchanged_required,
     }
 
-    @override
-    def run(self) -> list[nodes.Node]:
-        """Select a guide section, preserving source files and dependency
-        tracking.
-        """
+    def _source_path(self) -> Path:
+        """Validate the maintained RST source before parsing it."""
         source_root = Path(self.env.srcdir).resolve()
         _relative, filename = self.env.relfn2path(filename=self.arguments[0])
         source_path = Path(filename).resolve()
@@ -172,19 +169,19 @@ class InterviewerGuidelineSection(SphinxDirective):
             raise self.error(
                 message="An Interviewer Guideline cannot include itself"
             )
-        if "section" not in self.options or "language" not in self.options:
-            raise self.error(
-                message="interviewer-guideline-section requires "
-                ":section: and :language:"
-            )
-        language = self.config.hackerrank_languages.get(
-            self.options["language"]
-        )
+        return source_path
+
+    def _guide_document(
+        self, *, source_path: Path, language_key: str
+    ) -> tuple[nodes.document, str]:
+        """Read one cached language variant and track its dependencies."""
+        source_root = Path(self.env.srcdir).resolve()
+        language = self.config.hackerrank_languages.get(language_key)
         if language is None:
             raise self.error(
                 message=(
                     "Expected one Interviewer Guideline language config for "
-                    f"{self.options['language']!r}"
+                    f"{language_key!r}"
                 )
             )
         self.env.note_dependency(filename=source_path)
@@ -194,7 +191,7 @@ class InterviewerGuidelineSection(SphinxDirective):
                 "_interviewer_guideline_guides", {}
             )
         )
-        key = (str(object=source_path), self.options["language"])
+        key = (str(object=source_path), language_key)
         if key not in cache:
             document = self._parse_guide(
                 source_path=source_path,
@@ -202,16 +199,33 @@ class InterviewerGuidelineSection(SphinxDirective):
                 context=language.get("context", {}),
             )
             cache[key] = document
+        return cache[key], str(object=language.get("name", language_key))
+
+    @override
+    def run(self) -> list[nodes.Node]:
+        """Select a guide section while tracking source dependencies."""
+        source_path = self._source_path()
+        if "section" not in self.options or "language" not in self.options:
+            raise self.error(
+                message="interviewer-guideline-section requires "
+                ":section: and :language:"
+            )
+        document, language = self._guide_document(
+            source_path=source_path, language_key=self.options["language"]
+        )
+        guide = (
+            source_path.relative_to(Path(self.env.srcdir).resolve())
+            .with_suffix(suffix="")
+            .as_posix()
+        )
         try:
             section = select_section(
-                document=cache[key], selector=self.options["section"]
+                document=document, selector=self.options["section"]
             )
             content = section_content(
                 section=section,
-                guide=source_path.relative_to(source_root)
-                .with_suffix(suffix="")
-                .as_posix(),
-                language=language.get("name", self.options["language"]),
+                guide=guide,
+                language=language,
                 include_heading="include-heading" in self.options,
                 exclude_sections=tuple(
                     selector.strip()
