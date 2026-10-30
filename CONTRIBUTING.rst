@@ -89,16 +89,29 @@ Perform a Release
 ~~~~~~~~~~~~~~~~~
 
 Versions come from Git tags through ``setuptools-scm``.
-The release workflow uses ``GITHUB_TOKEN`` to commit release notes and PyPI trusted publishing with the ``release`` environment.
+The release workflow tags the reviewed commit and uses PyPI trusted publishing with the ``release`` environment.
 Configure the trusted publisher and set ``PYPI_PUBLISH_ENABLED`` to ``true`` before dispatching a release.
 
 #. `Install GitHub CLI`_.
 
-#. Perform a release:
+#. Prepare release notes for the next CalVer version in a pull request.
+   Use the current date and increment the final numeric suffix for another release on the same date:
+
+   .. code-block:: shell
+
+      uv run --group=release towncrier build --yes --version 2026.10.30.2
+      uv run --group=dev snapper --native --max-width 0 --in-place changelog/2026.10.30.2.md
+
+   Commit the generated changelog and removed fragments, then merge after the required checks pass.
+
+#. Dispatch the release from ``main``:
 
    .. code-block:: shell
 
       gh workflow run release.yml --repo adamtheturtle/sphinx-hackerrank
+
+   The workflow calculates the next version and requires its changelog file to exist.
+   It creates the tag and distributions without pushing a new commit to ``main``.
 
 .. _Install GitHub CLI: https://cli.github.com/manual/installation
 

@@ -27,7 +27,7 @@ Or install a wheel from the GitHub release assets:
 
 .. code-block:: console
 
-   pip install https://github.com/adamtheturtle/sphinx-hackerrank/releases/download/2026.10.30.1/sphinx_hackerrank-2026.10.30.1-py3-none-any.whl
+   pip install https://github.com/adamtheturtle/sphinx-hackerrank/releases/download/2026.10.30.2/sphinx_hackerrank-2026.10.30.2-py3-none-any.whl
 
 Enable the extension in ``conf.py``:
 

@@ -19,17 +19,13 @@ jobs:
       # This is needed for PyPI publishing.
       # See https://github.com/pypa/gh-action-pypi-publish/tree/release/v1/?tab=readme-ov-file#trusted-publishing.
       id-token: write
-      # This is needed for https://github.com/stefanzweifel/git-auto-commit-action.
+      # This is needed to create the release tag and upload distributions.
       contents: write
 
     steps:
       - uses: actions/checkout@v7
         with:
-          # Fetch all history including tags.
-          # Needed to find the latest tag.
-          #
-          # Also, avoids
-          # https://github.com/stefanzweifel/git-auto-commit-action/issues/99.
+          # Fetch all history and tags for version calculation.
           fetch-depth: 0
 
       - name: Install uv
@@ -47,21 +43,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Assemble native Markdown release notes
+      - name: Read the reviewed release notes
         env:
           RELEASE: ${{ steps.calver.outputs.release }}
         run: |
-          uv run --group=release towncrier build --yes --version "$RELEASE"
-          uv run --group=dev snapper --native --max-width 0 --in-place "changelog/$RELEASE.md"
+          test -f "changelog/$RELEASE.md"
           cp "changelog/$RELEASE.md" release-notes.md
-
-      - uses: stefanzweifel/git-auto-commit-action@v7
-        id: commit
-        with:
-          commit_message: Bump CHANGELOG
-          file_pattern: CHANGELOG.md changelog newsfragments
-          # Error if there are no changes.
-          skip_dirty_check: true
 
       - name: Bump version and push tag
         id: tag_version
@@ -70,7 +57,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           custom_tag: ${{ steps.calver.outputs.release }}
           tag_prefix: ''
-          commit_sha: ${{ steps.commit.outputs.commit_hash }}
+          commit_sha: ${{ github.sha }}
 
       - name: Build a binary wheel and a source tarball
         env:
