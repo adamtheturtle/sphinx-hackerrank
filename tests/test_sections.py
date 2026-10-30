@@ -121,25 +121,7 @@ def test_invalid_section_directives_report_errors(
     """Report invalid source paths, options, and section selections."""
     source = tmp_path / "source"
     source.mkdir()
-    _ = (source / "conf.py").write_text(
-        data=textwrap.dedent(
-            text="""\
-            extensions = ["sphinx_hackerrank"]
-            jinja2_contexts = {
-                "languages": {"original": True},
-                "interviewer_guidelines": {
-                    "language_configs": [
-                        {"language": "Python", "pygments_lexer": "python"},
-                    ],
-                },
-            }
-            hackerrank_languages = {
-                "python": {"name": "Python", "context": {}},
-            }
-            """
-        ),
-        encoding="utf-8",
-    )
+    (source / "conf.py").touch()
     _ = (source / "guide.rst").write_text(
         data=_SECTION_SOURCE, encoding="utf-8"
     )
@@ -162,7 +144,23 @@ def test_invalid_section_directives_report_errors(
         ),
         encoding="utf-8",
     )
-    app = make_app(srcdir=source)
+    app = make_app(
+        srcdir=source,
+        confoverrides={
+            "extensions": ["sphinx_hackerrank"],
+            "jinja2_contexts": {
+                "languages": {"original": True},
+                "interviewer_guidelines": {
+                    "language_configs": [
+                        {"language": "Python", "pygments_lexer": "python"},
+                    ],
+                },
+            },
+            "hackerrank_languages": {
+                "python": {"name": "Python", "context": {}},
+            },
+        },
+    )
     app.build()
     assert message in app.warning.getvalue()
     assert app.config.jinja2_contexts["languages"] == {"original": True}
@@ -221,33 +219,7 @@ def test_incremental_build_refreshes_the_view(
     """
     source = tmp_path / "source"
     source.mkdir()
-    _ = (source / "conf.py").write_text(
-        data=textwrap.dedent(
-            text="""\
-            extensions = ["sphinx_hackerrank"]
-            language_configs = [
-                {"language": "Python", "pygments_lexer": "python"},
-                {"language": "Java", "pygments_lexer": "java"},
-            ]
-            jinja2_contexts = {
-                "one": {},
-                "languages": {"language_configs": language_configs},
-                "interviewer_guidelines": {
-                    "language_configs": language_configs[:1],
-                },
-            }
-            suppress_warnings = ["config.cache"]
-            rst_prolog = ".. |test-name| replace:: Shared guide text."
-            hackerrank_languages = {
-                "python": {
-                    "name": "Python",
-                    "context": {"language_configs": language_configs[:1]},
-                }
-            }
-            """
-        ),
-        encoding="utf-8",
-    )
+    (source / "conf.py").touch()
     _ = (source / "index.rst").write_text(
         data=textwrap.dedent(
             text="""\
@@ -359,7 +331,32 @@ def test_incremental_build_refreshes_the_view(
         ),
         encoding="utf-8",
     )
-    app = make_app(srcdir=source, buildername=buildername)
+    language_configs = [
+        {"language": "Python", "pygments_lexer": "python"},
+        {"language": "Java", "pygments_lexer": "java"},
+    ]
+    app = make_app(
+        srcdir=source,
+        buildername=buildername,
+        confoverrides={
+            "extensions": ["sphinx_hackerrank"],
+            "jinja2_contexts": {
+                "one": {},
+                "languages": {"language_configs": language_configs},
+                "interviewer_guidelines": {
+                    "language_configs": language_configs[:1],
+                },
+            },
+            "suppress_warnings": ["config.cache"],
+            "rst_prolog": ".. |test-name| replace:: Shared guide text.",
+            "hackerrank_languages": {
+                "python": {
+                    "name": "Python",
+                    "context": {"language_configs": language_configs[:1]},
+                },
+            },
+        },
+    )
     app.build()
     output = Path(app.outdir) / "guide-interviewer-guideline.html"
     assert "Original wording." in output.read_text(encoding="utf-8")
