@@ -41,7 +41,29 @@ Authoring
 ---------
 
 Keep the full guide and its Interviewer Guideline RST beside each other.
-Include native sections by exact heading path or an existing RST section label:
+For guides organized into parts with a ``Prompt`` subsection, the Interviewer Guideline can contain just:
+
+.. code-block:: rst
+
+   .. interviewer-guideline:: widgets.rst
+
+The directive derives its page title from the guide and its languages from the adjacent question mapping.
+Each part with a direct ``Prompt`` subsection gets a disclosure, in source order.
+The categories use the existing sections:
+
+* ``Prompt``.
+* ``FAQ``, when present.
+* ``Signals and edge-case questions``, combining ``Follow up questions`` and ``Key considerations``.
+* ``Test cases``, when present.
+
+Follow-up sections can be nested beneath Prompt, FAQ, or another section.
+They appear once in their own category, without requiring parent paths or exclusions in the composition.
+Empty categories are omitted after admonitions are removed.
+A guide-level ``Evaluation`` section, when present, appears after the parts.
+Missing mappings, missing parts, and ambiguous category or evaluation headings fail the build.
+Changing the guide or mapping refreshes the view on an incremental build.
+
+For other layouts, include native sections by exact heading path or an existing RST section label:
 
 .. code-block:: rst
 
