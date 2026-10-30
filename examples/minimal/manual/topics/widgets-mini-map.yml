@@ -1,0 +1,6 @@
+version: 1
+questions:
+  - language: python
+    name: Widgets - Python
+  - language: javascript
+    name: Widgets - JavaScript

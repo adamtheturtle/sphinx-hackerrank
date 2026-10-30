@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "sphinx-hackerrank"
+version = "2026.10.30"
+description = "Build portable HackerRank interviewer mini-maps from Sphinx documentation"
+readme = "README.rst"
+requires-python = ">=3.12"
+license = "MIT"
+authors = [{name = "Adam Dangoor", email = "adamdangoor@gmail.com"}]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Sphinx :: Extension",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "sphinx>=8.2,<10",
+    "beautifulsoup4>=4.12",
+    "pyyaml>=6",
+    "sphinx-jinja2>=0.0.1",
+    "sphinx-toolbox>=4.3,<5",
+]
+
+[project.urls]
+Source = "https://github.com/adamtheturtle/sphinx-hackerrank"
+Issues = "https://github.com/adamtheturtle/sphinx-hackerrank/issues"
+
+[dependency-groups]
+dev = ["pytest>=9", "pytest-cov>=7", "ruff>=0.17", "build>=1.2", "twine>=6"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+lint.select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+branch = true
+source = ["sphinx_hackerrank"]
+
+[tool.coverage.report]
+show_missing = true
+fail_under = 100
+exclude_also = ["if TYPE_CHECKING:"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/sphinx_hackerrank"]

@@ -1,0 +1,36 @@
+.hr-mini-map {
+  font-family: Arial, sans-serif;
+  line-height: 1.5;
+  padding: 10px;
+}
+.hr-mini-map details {
+  margin-bottom: 12px;
+}
+.hr-mini-map summary {
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+}
+.hr-mini-map .rubric {
+  font-weight: bold;
+  margin-top: 1em;
+}
+.hr-mini-map pre {
+  background: #f5f5f5;
+  border: 1px solid #ddd;
+  color: #222;
+  overflow-x: auto;
+  padding: 10px;
+  white-space: pre;
+}
+.hr-mini-map table {
+  border-collapse: collapse;
+  width: 100%;
+}
+.hr-mini-map th,
+.hr-mini-map td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+}
