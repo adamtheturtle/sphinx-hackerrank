@@ -1,13 +1,11 @@
 """Exercise code copying in a real browser, outside the pytest matrix."""
 
 import textwrap
-from html import escape
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from playwright.sync_api import Page, expect, sync_playwright
-
-from sphinx_hackerrank.html import render_fragment
+from sphinx.application import Sphinx
 
 
 def _check_page(*, page: Page, path: Path) -> None:
@@ -63,6 +61,65 @@ def _check_page(*, page: Page, path: Path) -> None:
     )
 
 
+def _build_fixture(*, directory: Path, code: str) -> Path:
+    """Generate clipboard examples from native RST and included files."""
+    source = directory / "source"
+    source.mkdir()
+    (source / "conf.py").touch()
+    _ = (source / "code.txt").write_text(data=code, encoding="utf-8")
+    (source / "empty.txt").touch()
+    classes = "hr-interviewer-guideline interviewer-guideline-python"
+    _ = (source / "index.rst").write_text(
+        data=textwrap.dedent(
+            text=f"""\
+            Interviewer Guideline
+            =====================
+
+            .. container:: {classes}
+
+               .. literalinclude:: code.txt
+                  :language: text
+
+               .. literalinclude:: empty.txt
+                  :language: text
+            """
+        ),
+        encoding="utf-8",
+    )
+    _ = (source / "index.yml").write_text(
+        data=textwrap.dedent(
+            text="""\
+            version: 1
+            questions:
+              - language: python
+                name: Clipboard examples
+            """
+        ),
+        encoding="utf-8",
+    )
+    fixture_output = directory / "output"
+    app = Sphinx(
+        srcdir=source,
+        confdir=source,
+        outdir=fixture_output,
+        doctreedir=directory / "doctrees",
+        buildername="hackerrank",
+        confoverrides={
+            "extensions": ["sphinx_hackerrank"],
+            "hackerrank_manifest_pattern": "index.yml",
+        },
+        warningiserror=True,
+    )
+    app.build()
+    assert app.statuscode == 0
+    fragment = (
+        fixture_output / "interviewer-guidelines/index/python.html"
+    ).read_text(encoding="utf-8")
+    fixture = directory / "guidelines.html"
+    _ = fixture.write_text(data=fragment + fragment, encoding="utf-8")
+    return fixture
+
+
 def main() -> None:
     """Check clipboard APIs, fallback copying, and script-free
     rendering.
@@ -71,17 +128,8 @@ def main() -> None:
     output = root / "sample/build"
     script = root / "src/sphinx_hackerrank/static/interviewer_guideline.js"
     code = '  if x < 3 && y > 0:\n\tprint("\u03bb & </script>")\n\n'
-    fragment = render_fragment(
-        html=(
-            '<div class="hr-interviewer-guideline '
-            'interviewer-guideline-python">'
-            f"<pre>{escape(s=code)}</pre><pre></pre></div>"
-        ),
-        language="python",
-    )
     with TemporaryDirectory() as directory, sync_playwright() as automation:
-        fixture = Path(directory) / "guidelines.html"
-        _ = fixture.write_text(data=fragment + fragment, encoding="utf-8")
+        fixture = _build_fixture(directory=Path(directory), code=code)
         browser = automation.chromium.launch()
         context = browser.new_context(
             permissions=["clipboard-read", "clipboard-write"]
@@ -93,6 +141,7 @@ def main() -> None:
             fixture,
         ):
             _check_page(page=page, path=path)
+        rendered_code = page.locator(selector="pre").first.text_content()
         # Loading the asset again must not add duplicate controls.
         _ = page.add_script_tag(path=script)
         expect(
@@ -122,7 +171,9 @@ def main() -> None:
         expect(actual=page.get_by_role(role="status").first).to_have_text(
             expected="Copied"
         )
-        assert page.evaluate(expression="window.readClipboard()") == code
+        assert (
+            page.evaluate(expression="window.readClipboard()") == rendered_code
+        )
         _ = page.evaluate(
             expression="Object.defineProperty(navigator, 'clipboard', "
             "{value: undefined})"
@@ -131,7 +182,9 @@ def main() -> None:
         expect(actual=page.get_by_role(role="status").first).to_have_text(
             expected="Copied"
         )
-        assert page.evaluate(expression="window.readClipboard()") == code
+        assert (
+            page.evaluate(expression="window.readClipboard()") == rendered_code
+        )
         expect(actual=button).to_be_focused()
         _ = page.evaluate(expression="document.execCommand = () => false")
         button.click()
@@ -142,11 +195,15 @@ def main() -> None:
         assert button.get_attribute(name="aria-busy") is None
         expect(actual=button).to_be_focused()
         assert page.locator(selector="textarea").count() == 0
-        assert page.locator(selector="pre").first.text_content() == code
+        assert (
+            page.locator(selector="pre").first.text_content() == rendered_code
+        )
         plain = browser.new_context(java_script_enabled=False).new_page()
         _ = plain.goto(url=fixture.as_uri())
         expect(actual=plain.get_by_role(role="button")).to_have_count(count=0)
-        assert plain.locator(selector="pre").first.text_content() == code
+        assert (
+            plain.locator(selector="pre").first.text_content() == rendered_code
+        )
         browser.close()
     print("Code-copy browser checks passed.")
 

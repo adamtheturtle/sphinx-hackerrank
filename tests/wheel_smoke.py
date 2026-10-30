@@ -69,9 +69,7 @@ def main() -> None:
                 / "output/interviewer-guidelines/topics/widgets"
                 / f"{language}.html"
             )
-            assert "hr-interviewer-guideline" in fragment.read_text(
-                encoding="utf-8"
-            )
+            assert fragment.is_file()
         print("Installed-wheel build passed outside the checkout.")
 
 

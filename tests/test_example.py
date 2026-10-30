@@ -1,17 +1,17 @@
-"""A separate consumer exercises custom layout, contexts, and rendering
-policies.
-"""
+"""An independent consumer renders like hand-expanded native RST."""
 
 import shutil
+import textwrap
 from collections.abc import Callable
 from importlib.metadata import version
 from pathlib import Path
 
 import pytest
-from bs4 import BeautifulSoup, Tag
 from sphinx.testing.util import SphinxTestApp
 
 from sphinx_hackerrank import __version__
+from sphinx_hackerrank.html import render_fragment
+from tests.builds import build_expected
 
 
 @pytest.mark.parametrize(argnames="retain_notes", argvalues=[False, True])
@@ -21,13 +21,95 @@ def test_independent_example(
     tmp_path: Path,
     retain_notes: bool,
 ) -> None:
-    """Build portable fragments from the independently copied sample."""
-    source = tmp_path / "unrelated-documentation"
+    """Compare the copied sample with independently written native RST."""
     example = Path(__file__).resolve().parents[1] / "sample/source"
+    variants = [
+        {"name": "Python", "lexer": "python", "prompt": "print('widget')"},
+        {
+            "name": "JavaScript",
+            "lexer": "javascript",
+            "prompt": "console.log('widget');",
+        },
+    ]
+    guideline = (
+        "Widget Interviewer Guideline\n============================\n\n"
+    )
+    for variant in variants:
+        classes = (
+            "hr-interviewer-guideline "
+            f"interviewer-guideline-{variant['lexer']}"
+        )
+        guideline += textwrap.dedent(
+            text=f"""\
+            .. container:: {classes}
+
+               .. rubric:: Widgets: {variant["name"]}
+
+               See the :doc:`full guide <widgets>`.
+
+               .. collapse:: Part 1
+
+                  .. collapse:: Prompt
+
+                     Print a widget's name.
+
+                     .. code-block:: {variant["lexer"]}
+                        :class: summary-{variant["lexer"]}
+
+                        {variant["prompt"]}
+
+                     .. collapse:: Alternate inputs
+
+                        .. code-block:: text
+
+                           widget = ""
+
+            """
+        )
+        if retain_notes:
+            guideline += (
+                "         .. tip:: Ask the participant to explain "
+                "their choice.\n\n"
+            )
+        guideline += textwrap.indent(
+            text=textwrap.dedent(
+                text="""\
+                .. collapse:: Follow up questions
+
+                   How would you handle an empty widget name?
+
+                .. collapse:: FAQ
+
+                   The widget's name is always a string.
+
+                """
+            ),
+            prefix="      ",
+        )
+    docname = "topics/widgets-interviewer-guideline"
+    expected = build_expected(
+        make_app=make_app,
+        source=tmp_path / "expected",
+        files={
+            "index.rst": (example / "index.rst").read_text(encoding="utf-8"),
+            "topics/widgets.rst": (example / "topics/widgets.rst").read_text(
+                encoding="utf-8"
+            ),
+            f"{docname}.rst": guideline,
+        },
+        confoverrides={
+            "project": "Widget exercise",
+            "html_context": {"builder": "hackerrank"},
+            "jinja2_contexts": {"snippets": {"variants": variants}},
+        },
+        docnames=["index", "topics/widgets", docname],
+    )
+    source = tmp_path / "unrelated-documentation"
     _ = shutil.copytree(src=example, dst=source)
     app = make_app(
         srcdir=source,
         buildername="hackerrank",
+        exception_on_warning=True,
         confoverrides={
             "hackerrank_exclude_admonitions": not retain_notes,
         },
@@ -37,47 +119,15 @@ def test_independent_example(
     assert app.warning.getvalue() == ""
     assert __version__ == version(distribution_name="sphinx-hackerrank")
     output = Path(app.outdir)
-    full = BeautifulSoup(
-        markup=(output / "topics/widgets.html").read_text(encoding="utf-8"),
-        features="html.parser",
-    )
-    assert bool(full.select(selector=".admonition"))
-    index = output / "interviewer-guidelines/index.html"
-    links = BeautifulSoup(
-        markup=index.read_text(encoding="utf-8"), features="html.parser"
-    ).select(selector="li a")
-    expected_languages = 2
-    assert len(links) == expected_languages
-    for link in links:
-        href = link["href"]
-        assert isinstance(href, str)
-        path = index.parent / href
-        assert path.is_file()
-        soup = BeautifulSoup(
-            markup=path.read_text(encoding="utf-8"), features="html.parser"
+    for name, html in expected.items():
+        assert (output / f"{name}.html").read_text(encoding="utf-8") == html
+    assert (output / "interviewer-guidelines/index.html").is_file()
+    for variant in variants:
+        fragment = (
+            output
+            / "interviewer-guidelines/topics/widgets"
+            / f"{variant['lexer']}.html"
         )
-        assert bool(soup.select(selector=".admonition")) == retain_notes
-        assert soup.find(name="summary", string="Alternate inputs") is not None
-        assert soup.find(name="summary", string="Python") is None
-        assert soup.find(name="summary", string="JavaScript") is None
-        prompt = soup.find(name="summary", string="Prompt")
-        follow_up = soup.find(name="summary", string="Follow up questions")
-        assert isinstance(prompt, Tag)
-        assert isinstance(prompt.parent, Tag)
-        assert isinstance(follow_up, Tag)
-        assert isinstance(follow_up.parent, Tag)
-        question = "How would you handle an empty widget name?"
-        assert question not in prompt.parent.get_text()
-        assert question in follow_up.parent.get_text()
-        assert soup.get_text().count(question) == 1
-        guide = soup.find(name="a", string="full guide")
-        assert isinstance(guide, Tag)
-        assert guide["href"] == "../../../topics/widgets.html"
-    python = BeautifulSoup(
-        markup=(
-            output / "interviewer-guidelines/topics/widgets/python.html"
-        ).read_text(encoding="utf-8"),
-        features="html.parser",
-    )
-    assert "print('widget')" in python.get_text()
-    assert "console.log" not in python.get_text()
+        assert fragment.read_text(encoding="utf-8") == render_fragment(
+            html=expected[docname], language=variant["lexer"], docname=docname
+        )

@@ -1,86 +1,157 @@
-"""Portable HTML preserves code while resolving local and hosted links."""
+"""The HackerRank builder uses Sphinx's standard HTML rendering."""
+
+import textwrap
+from collections.abc import Callable
+from pathlib import Path
 
 import pytest
-from bs4 import BeautifulSoup, Tag
+from sphinx.testing.util import SphinxTestApp
 
 from sphinx_hackerrank.html import render_fragment
+from tests.builds import build_expected, write_sources
+
+_MAPPING = textwrap.dedent(
+    text="""\
+    version: 1
+    questions:
+      - language: python
+        name: Example
+    """
+)
 
 
 @pytest.mark.parametrize(
     argnames="source_url", argvalues=[None, "https://example.org/source/"]
 )
 @pytest.mark.parametrize(argnames="anchors", argvalues=[False, True])
-def test_portable_fragment(*, source_url: str | None, anchors: bool) -> None:
-    """Preserve code and rewrite links according to the source
-    settings.
-    """
-    line_number = '<span class="linenos">1</span>'
-    html = f"""<nav>Theme</nav><script src="theme.js"></script>
-<div class="hr-interviewer-guideline interviewer-guideline-python">
-<details><summary>Part 1</summary>
-<p>A participant\u2019s example.</p><a class="headerlink" href="#part">#</a>
-<a href="widgets.html#part-1">Guide</a><a href="https://example.org">External</a>
-<a href="#local">Local</a><a href="data.pdf">PDF</a>
-<pre>{line_number}<span>if x &lt; 3 &amp;&amp; y &gt; 0:</span>\n</pre>
-</details></div>
-<div class="interviewer-guideline-java">Other language</div>"""
-    fragment = render_fragment(
-        html=html,
+def test_builder_matches_html_builder(
+    *,
+    make_app: Callable[..., SphinxTestApp],
+    tmp_path: Path,
+    source_url: str | None,
+    anchors: bool,
+) -> None:
+    """Compare pages and exported fragments to a native HTML build."""
+    docname = "topics/widgets-interviewer-guideline"
+    classes = "hr-interviewer-guideline interviewer-guideline-python"
+    files = {
+        "index.rst": textwrap.dedent(
+            text="""\
+            Index
+            =====
+
+            .. toctree::
+
+               topics/widgets-interviewer-guideline
+               topics/widgets
+            """
+        ),
+        "topics/widgets.rst": "Widgets\n=======\n\nPart 1\n------\n",
+        f"{docname}.rst": textwrap.dedent(
+            text=f"""\
+            Interviewer Guideline
+            =====================
+
+            .. container:: {classes}
+
+               .. collapse:: Part 1
+
+                  A participant\u2019s example.
+
+                  `Guide <widgets.html#part-1>`_
+                  `External <https://example.org>`_
+                  `Local <#local>`_
+                  `PDF <data.pdf>`_
+
+                  .. code-block:: text
+                     :linenos:
+                     :caption: Example
+                     :name: example-code
+
+                     if x < 3 && y > 0:
+
+            .. container:: interviewer-guideline-java
+
+               Other language.
+            """
+        ),
+    }
+    expected = build_expected(
+        make_app=make_app,
+        source=tmp_path / "expected",
+        files=files,
+        confoverrides={"html_context": {"builder": "hackerrank"}},
+        docnames=["index", "topics/widgets", docname],
+    )
+    source = tmp_path / "actual"
+    write_sources(source=source, files={**files, f"{docname}.yml": _MAPPING})
+    app = make_app(
+        srcdir=source,
+        buildername="hackerrank",
+        exception_on_warning=True,
+        confoverrides={
+            "extensions": ["sphinx_hackerrank"],
+            "hackerrank_source_url": source_url,
+            "hackerrank_source_suffix": ".rst",
+            "hackerrank_source_anchors": anchors,
+        },
+    )
+    app.build()
+    for name, html in expected.items():
+        assert (Path(app.outdir) / f"{name}.html").read_text(
+            encoding="utf-8"
+        ) == html
+    # Export the independently built native page through the same public API.
+    assert (
+        Path(app.outdir) / "interviewer-guidelines/topics/widgets/python.html"
+    ).read_text(encoding="utf-8") == render_fragment(
+        html=expected[docname],
         language="python",
-        docname="topics/widgets-interviewer-guideline",
+        docname=docname,
         source_url=source_url,
         source_suffix=".rst",
         source_anchors=anchors,
     )
-    soup = BeautifulSoup(markup=fragment, features="html.parser")
-    code = soup.select_one(selector="pre code")
-    assert code is not None
-    assert code.get_text() == "if x < 3 && y > 0:\n"
-    assert not bool(
-        soup.select(
-            selector="nav,link,.interviewer-guideline-java,"
-            ".headerlink,pre span"
-        )
-    )
-    assert soup.style is not None
-    script = soup.select_one(selector="script[data-hr-copy-code]")
-    assert script is not None
-    assert "src" not in script.attrs
-    assert len(soup.select(selector="script")) == 1
-    assert fragment.isascii()
-    assert "participant\u2019s" in soup.get_text()
-    target = (
-        "../../../topics/widgets.html"
-        if source_url is None
-        else "https://example.org/source/topics/widgets.rst"
-    )
-    if anchors:
-        target += "#part-1"
-    expected_links = {
-        "Guide": target,
-        "External": "https://example.org",
-        "Local": "#local",
-        "PDF": "data.pdf",
-    }
-    for label, href in expected_links.items():
-        link = soup.find(name="a", string=label)
-        assert isinstance(link, Tag)
-        assert link["href"] == href
 
 
-@pytest.mark.parametrize(
-    argnames="html",
-    argvalues=[
-        "<p>Missing</p>",
-        '<div class="interviewer-guideline-python"></div>' * 2,
-    ],
-)
-def test_invalid_container(*, html: str) -> None:
-    """Reject fragments without exactly one matching language
-    container.
-    """
+@pytest.mark.parametrize(argnames="containers", argvalues=[0, 2])
+def test_invalid_container(
+    *,
+    make_app: Callable[..., SphinxTestApp],
+    tmp_path: Path,
+    containers: int,
+) -> None:
+    """Reject RST without exactly one matching language container."""
+    source = tmp_path / "source"
+    write_sources(
+        source=source,
+        files={
+            "index.rst": "Index\n=====\n",
+            "index-interviewer-guideline.rst": (
+                "Interviewer Guideline\n=====================\n\n"
+                + textwrap.dedent(
+                    text="""\
+                    .. container:: interviewer-guideline-python
+
+                       Example.
+
+                    """
+                )
+                * containers
+            ),
+            "index-interviewer-guideline.yml": _MAPPING,
+        },
+    )
+    app = make_app(
+        srcdir=source,
+        buildername="hackerrank",
+        confoverrides={
+            "extensions": ["sphinx_hackerrank"],
+            "suppress_warnings": ["toc.not_included"],
+        },
+    )
     with pytest.raises(
         expected_exception=ValueError,
         match="Expected one Interviewer Guideline",
     ):
-        _ = render_fragment(html=html, language="python")
+        app.build()
