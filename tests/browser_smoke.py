@@ -1,5 +1,6 @@
 """Exercise code copying in a real browser, outside the pytest matrix."""
 
+import textwrap
 from html import escape
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -30,12 +31,16 @@ def _check_page(*, page: Page, path: Path) -> None:
     # Displayed line numbers must not enter the clipboard.
     expected = blocks.first.text_content()
     _ = blocks.first.evaluate(
-        expression="""pre => {
-            const number = document.createElement('span');
-            number.className = 'linenos';
-            number.textContent = '1';
-            pre.prepend(number);
-        }"""
+        expression=textwrap.dedent(
+            text="""\
+            pre => {
+                const number = document.createElement('span');
+                number.className = 'linenos';
+                number.textContent = '1';
+                pre.prepend(number);
+            }
+            """
+        )
     )
     buttons.first.click()
     expect(actual=page.get_by_role(role="status").first).to_have_text(
@@ -94,17 +99,23 @@ def main() -> None:
             actual=page.get_by_role(role="button", name="Copy code")
         ).to_have_count(count=4)
         _ = page.evaluate(
-            expression="""() => {
-                window.readClipboard = navigator.clipboard.readText.bind(
-                    navigator.clipboard,
-                );
-                Object.defineProperty(navigator, 'clipboard', {
-                    configurable: true,
-                    value: {
-                        writeText: () => Promise.reject(new Error('Denied')),
-                    },
-                });
-            }"""
+            expression=textwrap.dedent(
+                text="""\
+                () => {
+                    window.readClipboard = navigator.clipboard.readText.bind(
+                        navigator.clipboard,
+                    );
+                    Object.defineProperty(navigator, 'clipboard', {
+                        configurable: true,
+                        value: {
+                            writeText: () => Promise.reject(
+                                new Error('Denied'),
+                            ),
+                        },
+                    });
+                }
+                """
+            )
         )
         button = page.get_by_role(role="button", name="Copy code").first
         button.click()
