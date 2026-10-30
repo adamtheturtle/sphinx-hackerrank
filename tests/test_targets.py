@@ -2,6 +2,7 @@
 fragments.
 """
 
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -22,10 +23,15 @@ from sphinx_hackerrank.targets import load_targets
         ),
         ("version: 1\nquestions: [{language: python}]", "question name"),
         (
-            (
-                "version: 1\n"
-                "questions: [{language: python, name: A}, "
-                "{language: python, name: B}]"
+            textwrap.dedent(
+                text="""\
+                version: 1
+                questions:
+                  - language: python
+                    name: A
+                  - language: python
+                    name: B
+                """
             ),
             "Duplicate language",
         ),
@@ -61,9 +67,15 @@ def test_nested_sources_and_publishing_metadata(*, tmp_path: Path) -> None:
     )
     metadata = nested / "example.yaml"
     _ = metadata.write_text(
-        data="version: 1\n"
-        "questions: [{language: python, name: Widget, "
-        "question_id: '123'}]",
+        data=textwrap.dedent(
+            text="""\
+            version: 1
+            questions:
+              - language: python
+                name: Widget
+                question_id: '123'
+            """
+        ),
         encoding="utf-8",
     )
     (target,) = load_targets(source_dir=tmp_path, pattern="**/*.yaml")[

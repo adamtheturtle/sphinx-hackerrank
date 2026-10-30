@@ -15,7 +15,7 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
     """Add standalone language fragments to the normal HTML output."""
 
     # Sphinx calls init() from its builder constructor.
-    mini_map_targets: dict[str, list[Target]]  # pyrefly: ignore[uninitialized-instance-variable]
+    interviewer_guideline_targets: dict[str, list[Target]]  # pyrefly: ignore[uninitialized-instance-variable]
 
     name = "hackerrank"
     format = "html"
@@ -24,7 +24,7 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
     def init(self) -> None:
         """Validate all question mappings before writing any output."""
         super().init()
-        self.mini_map_targets = load_targets(
+        self.interviewer_guideline_targets = load_targets(
             source_dir=Path(self.srcdir),
             pattern=self.config.hackerrank_manifest_pattern,
         )
@@ -34,21 +34,28 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
         """Rebuild missing fragments and changed mappings or
         presentation.
         """
-        self.mini_map_targets = load_targets(
+        self.interviewer_guideline_targets = load_targets(
             source_dir=Path(self.srcdir),
             pattern=self.config.hackerrank_manifest_pattern,
         )
         outdated = set(super().get_outdated_docs())
-        if not (Path(self.outdir) / "mini-maps" / "index.html").is_file():
-            outdated.update(self.mini_map_targets)
-        for docname, targets in self.mini_map_targets.items():
+        if not (
+            Path(self.outdir) / "interviewer-guidelines" / "index.html"
+        ).is_file():
+            outdated.update(self.interviewer_guideline_targets)
+        for docname, targets in self.interviewer_guideline_targets.items():
             newest_dependency = max(
                 path.stat().st_mtime_ns
                 for path in (
                     targets[0].metadata_path,
                     Path(__file__),
                     Path(__file__).with_name(name="html.py"),
-                    Path(__file__).parent / "static" / "mini_map.css",
+                    Path(__file__).parent
+                    / "static"
+                    / "interviewer_guideline.css",
+                    Path(__file__).parent
+                    / "static"
+                    / "interviewer_guideline.js",
                 )
             )
             outputs = (
@@ -79,7 +86,7 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
         event_arg: object = None,
     ) -> None:
         """Export the rendered body before the HTML theme adds chrome."""
-        for target in self.mini_map_targets.get(pagename, []):
+        for target in self.interviewer_guideline_targets.get(pagename, []):
             output_path = fragment_path(
                 output_dir=Path(self.outdir),
                 docname=pagename,
@@ -107,17 +114,16 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
 
     @override
     def finish(self) -> None:
-        """Add a local preview index linking to each standalone mini-
-        map.
-        """
+        """Add a local preview index linking to each Interviewer Guideline."""
         super().finish()
-        preview_dir = Path(self.outdir) / "mini-maps"
+        preview_dir = Path(self.outdir) / "interviewer-guidelines"
         preview_dir.mkdir(parents=True, exist_ok=True)
+        suffix = "-interviewer-guideline"
         links = "\n".join(
-            f'<li><a href="{escape(s=docname.removesuffix("-mini-map"))}/'
+            f'<li><a href="{escape(s=docname.removesuffix(suffix))}/'
             f'{target.language}.html">'
             f"{escape(s=target.name)}</a></li>"
-            for docname, targets in self.mini_map_targets.items()
+            for docname, targets in self.interviewer_guideline_targets.items()
             for target in targets
         )
         _ = (preview_dir / "index.html").write_text(
@@ -125,15 +131,15 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
                 '<!doctype html>\n<html lang="en"><head><meta charset="utf-8">'
                 '<meta name="viewport" '
                 'content="width=device-width, initial-scale=1">'
-                "<title>HackerRank mini-maps</title>"
+                "<title>HackerRank Interviewer Guidelines</title>"
                 "<style>body{font:16px/1.5 Arial,sans-serif;"
                 "margin:2rem;max-width:60rem}"
                 "li{margin:.5rem 0}</style></head><body><main>"
-                "<h1>HackerRank mini-maps</h1>"
+                "<h1>HackerRank Interviewer Guidelines</h1>"
                 "<p>Choose a question and language to preview"
-                " its interviewer mini-map.</p>"
-                "<p>These previews use the same HTML published "
-                "to HackerRank interviewer notes.</p>"
+                " its Interviewer Guideline.</p>"
+                "<p>These previews use the same HTML published as "
+                "HackerRank Interviewer Guidelines.</p>"
                 f"<ul>{links}</ul></main></body></html>\n"
             ),
             encoding="utf-8",

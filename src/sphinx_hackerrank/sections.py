@@ -1,4 +1,6 @@
-"""Reuse parsed guide sections in language-specific Sphinx mini-maps."""
+"""Reuse parsed guide sections in language-specific Sphinx Interviewer
+Guidelines.
+"""
 
 from collections.abc import Callable
 from copy import copy
@@ -104,7 +106,7 @@ def section_content(
     return container.children
 
 
-class MiniMapSection(SphinxDirective):
+class InterviewerGuidelineSection(SphinxDirective):
     """Include one parsed section from a maintained guide in one
     language.
     """
@@ -130,17 +132,20 @@ class MiniMapSection(SphinxDirective):
             or source_path.suffix != ".rst"
         ):
             raise self.error(
-                message="Mini-map source must be an RST guide within "
-                "the source directory"
+                message="Interviewer Guideline source must be an RST guide "
+                "within the source directory"
             )
         if (
             source_path
             == Path(self.env.doc2path(docname=self.env.docname)).resolve()
         ):
-            raise self.error(message="A mini-map cannot include itself")
+            raise self.error(
+                message="An Interviewer Guideline cannot include itself"
+            )
         if "section" not in self.options or "language" not in self.options:
             raise self.error(
-                message="mini-map-section requires :section: and :language:"
+                message="interviewer-guideline-section requires "
+                ":section: and :language:"
             )
         language = self.config.hackerrank_languages.get(
             self.options["language"]
@@ -148,14 +153,16 @@ class MiniMapSection(SphinxDirective):
         if language is None:
             raise self.error(
                 message=(
-                    "Expected one mini-map language config for "
+                    "Expected one Interviewer Guideline language config for "
                     f"{self.options['language']!r}"
                 )
             )
         self.env.note_dependency(filename=source_path)
         # Docutils stores extension attributes in an Any-valued dictionary.
         cache: dict[tuple[str, str], nodes.document] = (  # ty: ignore[unsound-assignment]
-            self.state.document.attributes.setdefault("_mini_map_guides", {})
+            self.state.document.attributes.setdefault(
+                "_interviewer_guideline_guides", {}
+            )
         )
         key = (str(object=source_path), self.options["language"])
         if key not in cache:
@@ -239,19 +246,21 @@ class MiniMapSection(SphinxDirective):
 
 def discard_guide_cache(_app: Sphinx, doctree: nodes.document) -> None:
     """Keep temporary language variants out of Sphinx's persisted doctrees."""
-    _ = doctree.attributes.pop("_mini_map_guides", None)
+    _ = doctree.attributes.pop("_interviewer_guideline_guides", None)
 
 
-def simplify_mini_map(
+def simplify_interviewer_guideline(
     _app: Sphinx, doctree: nodes.document, _docname: str
 ) -> None:
-    """Remove admonitions from mini-map views after includes render."""
+    """Remove admonitions from Interviewer Guideline views after includes
+    render.
+    """
     if not _app.config.hackerrank_exclude_admonitions:
         return
     containers = [
         node
         for node in doctree.findall(condition=nodes.container)
-        if "hr-mini-map" in node["classes"]
+        if "hr-interviewer-guideline" in node["classes"]
     ]
     for container in containers:
         for admonition in list(

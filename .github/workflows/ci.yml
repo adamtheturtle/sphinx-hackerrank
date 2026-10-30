@@ -64,14 +64,30 @@ jobs:
           UV_PYTHON: ${{ matrix.python-version }}
           UV_RESOLUTION: ${{ matrix.uv-resolution }}
 
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v10.3.2
+        with:
+          python-version: '3.13'
+      - name: Install Chromium
+        run: uv run --group=dev playwright install --with-deps chromium
+      - name: Build the sample
+        run: uv run --group=dev sphinx-build -W -b hackerrank sample/source sample/build
+      - name: Check code copying in Chromium
+        run: uv run --group=dev python tests/browser_smoke.py
+
   completion-ci:
-    needs: build
+    needs: [build, browser]
     runs-on: ubuntu-latest
     if: ${{ !cancelled() }}
     steps:
       - name: Check matrix job status
         run: |-
-          if ! ${{ needs.build.result == 'success' }}; then
-            echo "One or more matrix jobs failed"
+          if ! ${{ needs.build.result == 'success' && needs.browser.result == 'success' }}; then
+            echo "One or more CI jobs failed"
             exit 1
           fi

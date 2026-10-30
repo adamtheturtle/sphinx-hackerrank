@@ -2,12 +2,12 @@
 build-backend = "setuptools.build_meta"
 requires = [
     "setuptools",
-    "setuptools-scm>=8.1.0",
+    "setuptools-scm>=10.3.4",
 ]
 
 [project]
 name = "sphinx-hackerrank"
-description = "Build portable HackerRank interviewer mini-maps from Sphinx documentation."
+description = "Build portable HackerRank Interviewer Guidelines from Sphinx documentation."
 readme = { file = "README.rst", content-type = "text/x-rst" }
 keywords = [
     "documentation",
@@ -36,10 +36,10 @@ dynamic = [
     "version",
 ]
 dependencies = [
-    "beautifulsoup4>=4.12",
+    "beautifulsoup4>=4.15.0",
     "docutils>=0.19",
     "pyyaml>=6.0.3",
-    "sphinx>=8.2.3,<10",
+    "sphinx>=9.1.1,<10",
     "sphinx-jinja2>=0.0.1",
     "sphinx-toolbox>=4.3.1,<5",
 ]
@@ -60,6 +60,7 @@ dev = [
     "mypy-strict-kwargs==2026.10.19",
     "myst-parser==5.1.0",
     "no-defaults==2026.9.1",
+    "playwright==1.64.1",
     "prek==0.5.7",
     "pydocstringformatter==1.0.0",
     "pylint[spelling]==4.1.3",
@@ -70,7 +71,7 @@ dev = [
     "pytest==9.1.1",
     "pytest-beartype==0.3.0",
     "pytest-cov==7.1.0",
-    "ruff==0.17.2",
+    "ruff==0.17.3",
     # We add shellcheck-py not only for shell scripts and shell code blocks,
     # but also because having it installed means that ``actionlint-py`` will
     # use it to lint shell commands in GitHub workflow files.
@@ -97,6 +98,7 @@ packages.find.where = [
 package-data.sphinx_hackerrank = [
     "py.typed",
     "static/*.css",
+    "static/*.js",
 ]
 zip-safe = false
 
@@ -141,6 +143,7 @@ lint.per-file-ignores."doccmd_*.py" = [
 # Mapping schema failures consistently use ValueError for invalid YAML values.
 lint.per-file-ignores."src/sphinx_hackerrank/targets.py" = [ "TRY004" ]
 # The wheel smoke test invokes uv and Python with controlled arguments.
+lint.per-file-ignores."tests/browser_smoke.py" = [ "T201" ]
 lint.per-file-ignores."tests/wheel_smoke.py" = [ "S603", "S607", "T201" ]
 # Do not automatically remove commented out code.
 # We comment out code during development, and with VSCode auto-save, this code
@@ -408,8 +411,8 @@ xfail_strict = true
 
 [tool.coverage]
 run.source = [ "src/", "tests" ]
-# The smoke script runs against the installed wheel in CI, outside pytest.
-run.omit = [ "tests/wheel_smoke.py" ]
+# These scripts run separately in CI, outside pytest.
+run.omit = [ "tests/browser_smoke.py", "tests/wheel_smoke.py" ]
 run.branch = true
 report.fail_under = 100
 report.exclude_also = [

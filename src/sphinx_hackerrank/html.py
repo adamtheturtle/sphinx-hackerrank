@@ -12,8 +12,8 @@ def fragment_path(*, output_dir: Path, docname: str, language: str) -> Path:
     """Locate a language fragment in a builder output directory."""
     return (
         output_dir
-        / "mini-maps"
-        / docname.removesuffix("-mini-map")
+        / "interviewer-guidelines"
+        / docname.removesuffix("-interviewer-guideline")
         / f"{language}.html"
     )
 
@@ -22,7 +22,7 @@ def render_fragment(
     *,
     html: str,
     language: str,
-    docname: str = "mini-map",
+    docname: str = "interviewer-guideline",
     source_url: str | None = None,
     source_suffix: str = ".html",
     source_anchors: bool = True,
@@ -31,10 +31,11 @@ def render_fragment(
     links.
     """
     soup = BeautifulSoup(markup=html, features="html.parser")
-    containers = soup.select(selector=f".mini-map-{language}")
+    containers = soup.select(selector=f".interviewer-guideline-{language}")
     if len(containers) != 1:
         message = (
-            f"Expected one mini-map for {language}, found {len(containers)}"
+            f"Expected one Interviewer Guideline for {language}, "
+            f"found {len(containers)}"
         )
         raise ValueError(message)
     container = containers[0]
@@ -65,6 +66,8 @@ def render_fragment(
             if source_anchors and bool(url.fragment):
                 destination += "#" + url.fragment
             link["href"] = destination
+    for line_number in container.select(selector=".linenos"):
+        line_number.decompose()
     for pre in container.find_all(name="pre"):
         code = soup.new_tag(name="code")
         code.string = pre.get_text()
@@ -77,7 +80,15 @@ def render_fragment(
     )
     style = (
         files(anchor="sphinx_hackerrank")
-        .joinpath("static/mini_map.css")
+        .joinpath("static/interviewer_guideline.css")
         .read_text(encoding="utf-8")
     )
-    return f'<style type="text/css">{style}</style>\n{fragment}\n'
+    script = (
+        files(anchor="sphinx_hackerrank")
+        .joinpath("static/interviewer_guideline.js")
+        .read_text(encoding="utf-8")
+    )
+    return (
+        f'<style type="text/css">{style}</style>\n{fragment}\n'
+        f'<script data-hr-copy-code="">{script}</script>\n'
+    )
