@@ -102,11 +102,11 @@ def test_section_matches_native_rst(
         See `Details <guide.html#details>`_.
         """
     )
-    if not exclusions:
+    if not bool(exclusions):
         expanded += "\n.. rubric:: Details\n\nNested details.\n"
     if include_heading:
         expanded = ".. rubric:: Prompt\n\n" + expanded
-    if exclusions:
+    if bool(exclusions):
         expanded += "\nNested details.\n"
     expected = build_expected(
         make_app=make_app,
@@ -124,7 +124,7 @@ def test_section_matches_native_rst(
     )
     if include_heading:
         directive += "   :include-heading:\n"
-    if exclusions:
+    if bool(exclusions):
         directive += (
             "   :exclude-sections: "
             + "\n                      ".join(exclusions)
