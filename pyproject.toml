@@ -36,7 +36,7 @@ dynamic = [
     "version",
 ]
 dependencies = [
-    "beautifulsoup4>=4.12",
+    "beautifulsoup4>=4.15.0",
     "docutils>=0.19",
     "pyyaml>=6.0.3",
     "sphinx>=8.2.3,<10",
