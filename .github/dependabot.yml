@@ -9,6 +9,11 @@ updates:
     schedule:
       interval: daily
     open-pull-requests-limit: 10
+    # doc8 caps Docutils at 0.21.2, and doccmd's MyST dependency caps it below 0.23.
+    # Remove this ignore when both tools support newer Docutils versions.
+    ignore:
+      - dependency-name: docutils
+        versions: ['>0.21.2']
   - package-ecosystem: github-actions
     directory: /
     schedule:

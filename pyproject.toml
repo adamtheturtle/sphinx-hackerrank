@@ -37,7 +37,7 @@ dynamic = [
 ]
 dependencies = [
     "beautifulsoup4>=4.15.0",
-    "docutils>=0.19",
+    "docutils>=0.21.2",
     "pyyaml>=6.0.3",
     "sphinx>=9.1.1,<10",
     "sphinx-jinja2>=0.0.1",
