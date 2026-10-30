@@ -7,7 +7,7 @@ requires = [
 
 [project]
 name = "sphinx-hackerrank"
-description = "Build portable HackerRank interviewer mini-maps from Sphinx documentation."
+description = "Build portable HackerRank Interviewer Guidelines from Sphinx documentation."
 readme = { file = "README.rst", content-type = "text/x-rst" }
 keywords = [
     "documentation",

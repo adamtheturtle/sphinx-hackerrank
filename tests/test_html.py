@@ -15,16 +15,17 @@ def test_portable_fragment(*, source_url: str | None, anchors: bool) -> None:
     settings.
     """
     html = """<nav>Theme</nav><script src="theme.js"></script>
-<div class="hr-mini-map mini-map-python"><details><summary>Part 1</summary>
+<div class="hr-interviewer-guideline interviewer-guideline-python">
+<details><summary>Part 1</summary>
 <p>A participant\u2019s example.</p><a class="headerlink" href="#part">#</a>
 <a href="widgets.html#part-1">Guide</a><a href="https://example.org">External</a>
 <a href="#local">Local</a><a href="data.pdf">PDF</a>
 <pre><span>if x &lt; 3 &amp;&amp; y &gt; 0:</span>\n</pre></details></div>
-<div class="mini-map-java">Other language</div>"""
+<div class="interviewer-guideline-java">Other language</div>"""
     fragment = render_fragment(
         html=html,
         language="python",
-        docname="topics/widgets-mini-map",
+        docname="topics/widgets-interviewer-guideline",
         source_url=source_url,
         source_suffix=".rst",
         source_anchors=anchors,
@@ -35,7 +36,8 @@ def test_portable_fragment(*, source_url: str | None, anchors: bool) -> None:
     assert code.get_text() == "if x < 3 && y > 0:\n"
     assert not bool(
         soup.select(
-            selector="nav,script,link,.mini-map-java,.headerlink,pre span"
+            selector="nav,script,link,.interviewer-guideline-java,"
+            ".headerlink,pre span"
         )
     )
     assert soup.style is not None
@@ -62,13 +64,17 @@ def test_portable_fragment(*, source_url: str | None, anchors: bool) -> None:
 
 @pytest.mark.parametrize(
     argnames="html",
-    argvalues=["<p>Missing</p>", '<div class="mini-map-python"></div>' * 2],
+    argvalues=[
+        "<p>Missing</p>",
+        '<div class="interviewer-guideline-python"></div>' * 2,
+    ],
 )
 def test_invalid_container(*, html: str) -> None:
     """Reject fragments without exactly one matching language
     container.
     """
     with pytest.raises(
-        expected_exception=ValueError, match="Expected one mini-map"
+        expected_exception=ValueError,
+        match="Expected one Interviewer Guideline",
     ):
         _ = render_fragment(html=html, language="python")

@@ -42,7 +42,7 @@ def test_independent_example(
         features="html.parser",
     )
     assert bool(full.select(selector=".admonition"))
-    index = output / "mini-maps/index.html"
+    index = output / "interviewer-guidelines/index.html"
     links = BeautifulSoup(
         markup=index.read_text(encoding="utf-8"), features="html.parser"
     ).select(selector="li a")
@@ -64,9 +64,9 @@ def test_independent_example(
         assert isinstance(guide, Tag)
         assert guide["href"] == "../../../topics/widgets.html"
     python = BeautifulSoup(
-        markup=(output / "mini-maps/topics/widgets/python.html").read_text(
-            encoding="utf-8"
-        ),
+        markup=(
+            output / "interviewer-guidelines/topics/widgets/python.html"
+        ).read_text(encoding="utf-8"),
         features="html.parser",
     )
     assert "print('widget')" in python.get_text()

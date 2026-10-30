@@ -1,11 +1,11 @@
-Widget mini-map
-===============
+Widget Interviewer Guideline
+============================
 
 .. jinja:: snippets
 
    {% for variant in variants %}
 
-   .. container:: hr-mini-map mini-map-{{ variant.lexer }}
+   .. container:: hr-interviewer-guideline interviewer-guideline-{{ variant.lexer }}
 
       .. rubric:: Widgets: {{ variant.name }}
 
@@ -15,13 +15,13 @@ Widget mini-map
 
          .. collapse:: Prompt
 
-            .. mini-map-section:: widgets.rst
+            .. interviewer-guideline-section:: widgets.rst
                :section: #widget-prompt
                :language: {{ variant.lexer }}
 
          .. collapse:: FAQ
 
-            .. mini-map-section:: widgets.rst
+            .. interviewer-guideline-section:: widgets.rst
                :section: Part 1 / FAQ
                :language: {{ variant.lexer }}
 
