@@ -55,6 +55,26 @@ Nested headings become rubrics inside disclosures.
 Build with ``-W`` to reject missing or ambiguous selections as directive errors.
 The directive selects sections from the guide without extraction markers or duplicated content.
 
+Keep the guide's existing heading hierarchy when composing separate disclosures.
+Use ``:exclude-sections:`` to omit subsections from a parent selection:
+
+.. code-block:: rst
+
+   .. interviewer-guideline-section:: widgets.rst
+      :section: Part 1 / Prompt
+      :language: python
+      :exclude-sections: Follow up questions
+
+   .. interviewer-guideline-section:: widgets.rst
+      :section: Part 1 / Prompt / Follow up questions
+      :language: python
+
+Exclusions are heading paths relative to the selected section, or section labels within it.
+List multiple exclusions on separate indented lines.
+Missing or ambiguous exclusions fail the build, as does excluding the selected section itself.
+Exclusions affect only the copied view.
+The source guide and other selections retain their content.
+
 The directive uses native includes, substitutions, and the guide's existing Jinja templates.
 Variants are cached within each Interviewer Guideline read and discarded before Sphinx persists the document tree.
 Guide and included-file dependencies are tracked for incremental builds.

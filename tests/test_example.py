@@ -60,6 +60,16 @@ def test_independent_example(
         assert soup.find(name="summary", string="Alternate inputs") is not None
         assert soup.find(name="summary", string="Python") is None
         assert soup.find(name="summary", string="JavaScript") is None
+        prompt = soup.find(name="summary", string="Prompt")
+        follow_up = soup.find(name="summary", string="Follow up questions")
+        assert isinstance(prompt, Tag)
+        assert isinstance(prompt.parent, Tag)
+        assert isinstance(follow_up, Tag)
+        assert isinstance(follow_up.parent, Tag)
+        question = "How would you handle an empty widget name?"
+        assert question not in prompt.parent.get_text()
+        assert question in follow_up.parent.get_text()
+        assert soup.get_text().count(question) == 1
         guide = soup.find(name="a", string="full guide")
         assert isinstance(guide, Tag)
         assert guide["href"] == "../../../topics/widgets.html"

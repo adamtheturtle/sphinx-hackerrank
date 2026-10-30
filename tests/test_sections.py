@@ -81,6 +81,7 @@ def test_section_paths_labels_and_copying() -> None:
             guide="guide",
             language="Python",
             include_heading=include_heading,
+            exclude_sections=(),
         )
         text = "\n".join(node.astext() for node in content)
         assert "First prompt." in text
@@ -92,6 +93,32 @@ def test_section_paths_labels_and_copying() -> None:
         )
         assert ("Prompt" in text) == include_heading
     assert document.pformat() == before
+
+
+@pytest.mark.parametrize(
+    argnames="exclusions",
+    argvalues=[("Details",), ("#details",), ("Details", "Details")],
+)
+def test_exclude_subsections_without_changing_the_source(
+    *, exclusions: tuple[str, ...]
+) -> None:
+    """A parent can omit a child that can still be selected separately."""
+    document = publish_doctree(source=_SECTION_SOURCE)
+    section = select_section(document=document, selector="Q1 / Prompt")
+    before = document.pformat()
+    content = section_content(
+        section=section,
+        guide="guide",
+        language="Python",
+        include_heading=False,
+        exclude_sections=exclusions,
+    )
+    text = "\n".join(node.astext() for node in content)
+    assert "First prompt." in text
+    assert "Nested details." not in text
+    assert document.pformat() == before
+    child = select_section(document=document, selector="Q1 / Prompt / Details")
+    assert "Nested details." in child.astext()
 
 
 @pytest.mark.parametrize(
@@ -108,6 +135,22 @@ def test_section_paths_labels_and_copying() -> None:
         ),
         ("guide.rst", ":section: Q9 / Prompt\n:language: python", "found 0"),
         ("guide.rst", ":section: Prompt\n:language: python", "found 2"),
+        (
+            "guide.rst",
+            (
+                ":section: Q1 / Prompt\n:language: python\n"
+                ":exclude-sections: Missing"
+            ),
+            "found 0",
+        ),
+        (
+            "guide.rst",
+            (
+                ":section: Q1 / Prompt\n:language: python\n"
+                ":exclude-sections: #stable-prompt"
+            ),
+            "Cannot exclude the selected section itself",
+        ),
     ],
 )
 def test_invalid_section_directives_report_errors(

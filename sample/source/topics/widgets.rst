@@ -31,6 +31,11 @@ Print a widget's name.
 
 .. tip:: Ask the participant to explain their choice.
 
+Follow up questions
+^^^^^^^^^^^^^^^^^^^
+
+How would you handle an empty widget name?
+
 FAQ
 ~~~
 

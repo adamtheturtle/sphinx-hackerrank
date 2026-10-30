@@ -18,6 +18,13 @@ Widget Interviewer Guideline
             .. interviewer-guideline-section:: widgets.rst
                :section: #widget-prompt
                :language: {{ variant.lexer }}
+               :exclude-sections: Follow up questions
+
+         .. collapse:: Follow up questions
+
+            .. interviewer-guideline-section:: widgets.rst
+               :section: Part 1 / Prompt / Follow up questions
+               :language: {{ variant.lexer }}
 
          .. collapse:: FAQ
 
