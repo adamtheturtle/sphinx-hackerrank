@@ -25,7 +25,7 @@ from sphinx_toolbox.collapse import CollapseNode, CollapseSummaryNode
 
 
 def select_section(
-    *, document: nodes.document, selector: str
+    *, document: nodes.document | nodes.section, selector: str
 ) -> nodes.section:
     """Resolve an exact heading path or a standard RST section label."""
     sections: list[nodes.section] = list(
@@ -71,16 +71,44 @@ def _rubric(title: nodes.Node) -> nodes.rubric:
     return rubric
 
 
+def _copy_without_sections(
+    *, section: nodes.section, exclude_sections: tuple[str, ...]
+) -> nodes.section:
+    """Copy a section while omitting validated descendant selections."""
+    copied = section.deepcopy()
+    excluded = [
+        select_section(document=copied, selector=selector)
+        for selector in exclude_sections
+    ]
+    if any(target is copied for target in excluded):
+        message = "Cannot exclude the selected section itself"
+        raise ValueError(message)
+    excluded_ids = {id(target) for target in excluded}
+    for target in list(copied.findall(condition=nodes.section)):
+        if id(target) in excluded_ids:
+            assert target.parent is not None
+            _ = target.parent.remove(item=target)
+    return copied
+
+
 def section_content(
-    *, section: nodes.section, guide: str, language: str, include_heading: bool
+    *,
+    section: nodes.section,
+    guide: str,
+    language: str,
+    include_heading: bool,
+    exclude_sections: tuple[str, ...] = (),
 ) -> list[nodes.Node]:
     """Copy selected nodes without importing the guide's anchors or
     language selectors.
     """
+    copied = _copy_without_sections(
+        section=section, exclude_sections=exclude_sections
+    )
     container = nodes.container()
     if include_heading:
-        container += _rubric(title=section[0])
-    container += [child.deepcopy() for child in section.children[1:]]
+        container += _rubric(title=copied[0])
+    container += copied.children[1:]
     for subsection in list(container.findall(condition=nodes.section)):
         subsection.replace_self(
             new=[_rubric(title=subsection[0]), *subsection.children[1:]]
@@ -117,6 +145,7 @@ class InterviewerGuidelineSection(SphinxDirective):
         "section": directives.unchanged_required,
         "language": directives.unchanged_required,
         "include-heading": directives.flag,
+        "exclude-sections": directives.unchanged_required,
     }
 
     @override
@@ -176,16 +205,23 @@ class InterviewerGuidelineSection(SphinxDirective):
             section = select_section(
                 document=cache[key], selector=self.options["section"]
             )
+            content = section_content(
+                section=section,
+                guide=source_path.relative_to(source_root)
+                .with_suffix(suffix="")
+                .as_posix(),
+                language=language.get("name", self.options["language"]),
+                include_heading="include-heading" in self.options,
+                exclude_sections=tuple(
+                    selector.strip()
+                    for selector in self.options.get(
+                        "exclude-sections", ""
+                    ).splitlines()
+                    if bool(selector.strip())
+                ),
+            )
         except ValueError as error:
             raise self.error(message=str(object=error)) from error
-        content = section_content(
-            section=section,
-            guide=source_path.relative_to(source_root)
-            .with_suffix(suffix="")
-            .as_posix(),
-            language=language.get("name", self.options["language"]),
-            include_heading="include-heading" in self.options,
-        )
         for root in content:
             for node in root.findall():
                 node.document = self.state.document
