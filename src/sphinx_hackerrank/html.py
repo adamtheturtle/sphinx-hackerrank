@@ -1,11 +1,110 @@
 """Render standalone HTML without a theme or external assets."""
 
 import posixpath
+import re
 from importlib.resources import files
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Comment, Tag
+from bs4.element import PageElement
+
+_BLOCK_ELEMENTS = frozenset(
+    {
+        "address",
+        "article",
+        "aside",
+        "blockquote",
+        "body",
+        "br",
+        "caption",
+        "col",
+        "colgroup",
+        "dd",
+        "details",
+        "dialog",
+        "div",
+        "dl",
+        "dt",
+        "fieldset",
+        "figcaption",
+        "figure",
+        "footer",
+        "form",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "header",
+        "hr",
+        "html",
+        "legend",
+        "li",
+        "main",
+        "nav",
+        "ol",
+        "p",
+        "pre",
+        "section",
+        "summary",
+        "table",
+        "tbody",
+        "td",
+        "tfoot",
+        "th",
+        "thead",
+        "tr",
+        "ul",
+    }
+)
+
+
+def _inline_neighbor(node: PageElement | None, /) -> bool:
+    """Identify neighboring content whose separating space matters."""
+    return node is not None and (
+        not isinstance(node, Tag) or node.name not in _BLOCK_ELEMENTS
+    )
+
+
+def normalize_html(*, html: str) -> str:
+    """Normalize HackerRank serialization while preserving literal content."""
+    soup = BeautifulSoup(markup=html, features="html.parser")
+    for column in soup.select(selector="col[style]"):
+        width = re.fullmatch(
+            pattern=r"\s*width\s*:\s*(\d+(?:\.\d+)?%)\s*;?\s*",
+            string=str(object=column["style"]),
+        )
+        if width is not None:
+            column["style"] = f"width:{width[1]};"
+    for text in soup.find_all(string=True):
+        if (
+            isinstance(text, Comment)
+            or text.find_parent(
+                name=["pre", "code", "style", "script", "textarea"]
+            )
+            is not None
+        ):
+            continue
+        normalized = re.sub(pattern=r"\s+", repl=" ", string=str(object=text))
+        if not _inline_neighbor(text.previous_sibling):
+            normalized = normalized.lstrip()
+        if not _inline_neighbor(text.next_sibling):
+            normalized = normalized.rstrip()
+        _ = (
+            text.replace_with(normalized)
+            if bool(normalized)
+            else text.extract()
+        )
+    return str(object=soup)
+
+
+def html_equivalent(left: str, right: str, /) -> bool:
+    """Compare generated and saved HTML without ignoring meaningful
+    changes.
+    """
+    return normalize_html(html=left) == normalize_html(html=right)
 
 
 def fragment_path(*, output_dir: Path, docname: str, language: str) -> Path:
