@@ -8,6 +8,7 @@ from sphinx.config import Config
 
 from sphinx_hackerrank.builder import HackerRankBuilder
 from sphinx_hackerrank.compose import InterviewerGuideline
+from sphinx_hackerrank.layout import GuidelineLayout
 from sphinx_hackerrank.sections import (
     InterviewerGuidelineSection,
     discard_guide_cache,
@@ -72,6 +73,12 @@ def setup(app: Sphinx) -> dict[str, object]:
         default=True,
         rebuild="html",
         types=bool,
+    )
+    app.add_config_value(
+        name="hackerrank_guideline_layout",
+        default=None,
+        rebuild="env",
+        types=(GuidelineLayout, type(None)),
     )
     app.add_builder(builder=HackerRankBuilder)
     app.add_directive(

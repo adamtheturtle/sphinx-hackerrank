@@ -41,27 +41,48 @@ Authoring
 ---------
 
 Keep the full guide and its Interviewer Guideline RST beside each other.
-For guides organized into parts with a ``Prompt`` subsection, the Interviewer Guideline can contain just:
+Define the layout in the consuming project's ``conf.py``:
+
+.. code-block:: python
+
+   """Sphinx configuration."""
+
+   from sphinx_hackerrank.layout import GuidelineLayout, SectionGroup
+
+   hackerrank_guideline_layout = GuidelineLayout(
+       part_marker="Brief",
+       groups=(
+           SectionGroup(title="Work", sections=("Brief",)),
+           SectionGroup(
+               title="Examples",
+               sections=("Cases",),
+               include_headings=("Cases",),
+           ),
+       ),
+       trailing_sections=("Review",),
+       introduction="See the `source guide <{source_url}>`_.",
+   )
+
+The Interviewer Guideline RST then needs one directive:
 
 .. code-block:: rst
 
-   .. interviewer-guideline:: widgets.rst
+   .. interviewer-guideline:: guide.rst
+
+The package has no built-in section names, grouping rules, or introductory wording.
+The configured marker identifies parts by a direct subsection with that heading.
+Groups select source headings and combine their content under the supplied display title.
+``include_headings`` retains the listed source headings inside a group.
+``trailing_sections`` selects optional sections to show after the parts.
+``introduction`` is RST supplied by the consumer, with ``{source_url}`` replaced by the configured guide URL.
+Its default is empty.
 
 The directive derives its page title from the guide and its languages from the adjacent question mapping.
-Each part with a direct ``Prompt`` subsection gets a disclosure, in source order.
-The categories use the existing sections:
-
-* ``Prompt``.
-* ``FAQ``, when present.
-* ``Signals and edge-case questions``, combining ``Follow up questions`` and ``Key considerations``.
-* ``Test cases``, when present.
-
-Follow-up sections can be nested beneath Prompt, FAQ, or another section.
-They appear once in their own category, without requiring parent paths or exclusions in the composition.
-Empty categories are omitted after admonitions are removed.
-A guide-level ``Evaluation`` section, when present, appears after the parts.
-Missing mappings, missing parts, and ambiguous category or evaluation headings fail the build.
-Changing the guide or mapping refreshes the view on an incremental build.
+Selected sections can be nested beneath other selections without requiring parent paths in the layout.
+They appear once in their own group.
+Empty groups are omitted after admonitions are removed.
+A missing layout, missing mappings, missing parts, or ambiguous selected headings fail the build.
+Changing the guide, mapping, or configured layout refreshes the view.
 
 For other layouts, include native sections by exact heading path or an existing RST section label:
 
