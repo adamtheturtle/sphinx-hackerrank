@@ -9,6 +9,7 @@ import pytest
 from bs4 import BeautifulSoup
 from sphinx.testing.util import SphinxTestApp
 
+from sphinx_hackerrank.layout import GuidelineLayout, SectionGroup
 from tests.builds import write_sources
 
 _MAPPING = """\
@@ -90,6 +91,26 @@ def _configuration() -> dict[str, object]:
     """
     return {
         "extensions": ["sphinx_hackerrank"],
+        "hackerrank_guideline_layout": GuidelineLayout(
+            part_marker="Prompt",
+            groups=(
+                SectionGroup(title="Prompt", sections=("Prompt",)),
+                SectionGroup(title="FAQ", sections=("FAQ",)),
+                SectionGroup(
+                    title="Signals and edge-case questions",
+                    sections=("Follow up questions", "Key considerations"),
+                    include_headings=("Key considerations",),
+                ),
+                SectionGroup(title="Test cases", sections=("Test cases",)),
+            ),
+            trailing_sections=("Evaluation",),
+            introduction=(
+                "Interviewer only. "
+                "Share prompts and test cases as you reach each part. See the "
+                "`full guide <{source_url}>`_ for interview setup "
+                "and reference solutions."
+            ),
+        ),
         "hackerrank_jinja_context": "snippets",
         "jinja2_contexts": {"snippets": {"example": "unselected language"}},
         "hackerrank_languages": {
@@ -247,7 +268,7 @@ def test_derived_layout_tracks_guide_and_mapping(
     argvalues=[
         ("Widgets\n=======\n", "", "requires an adjacent language mapping"),
         ("No headings here.\n", _MAPPING, "requires a guide title"),
-        ("Widgets\n=======\n\nNo parts.\n", _MAPPING, "No question parts"),
+        ("Widgets\n=======\n\nNo parts.\n", _MAPPING, "No guide parts"),
         (
             "Widgets\n=======\n\nQ1\n--\n\nPrompt\n~~~~~~\n\nHi.\n\nFAQ\n~~~\n\nOne.\n\nFAQ\n~~~\n\nTwo.\n",
             _MAPPING,
@@ -256,7 +277,7 @@ def test_derived_layout_tracks_guide_and_mapping(
         (
             "Widgets\n=======\n\nQ1\n--\n\nPrompt\n~~~~~~\n\nHi.\n\nEvaluation\n----------\n\nOne.\n\nEvaluation\n----------\n\nTwo.\n",
             _MAPPING,
-            "at most one Evaluation",
+            "at most one trailing section",
         ),
     ],
 )
@@ -310,3 +331,77 @@ def test_derived_layout_allows_a_guide_without_evaluation(
     assert "Build it." in html
     assert "Evaluation" not in html
     assert "Signals and edge-case questions" not in html
+
+
+def test_layout_must_be_supplied_by_the_consumer(
+    *,
+    make_app: Callable[..., SphinxTestApp],
+    tmp_path: Path,
+) -> None:
+    """No built-in outline is selected when the consumer omits its
+    policy.
+    """
+    source = tmp_path / "source"
+    write_sources(
+        source=source, files=_files(guide="Guide\n=====\n", mapping=_MAPPING)
+    )
+    app = make_app(
+        srcdir=source,
+        confoverrides={
+            **_configuration(),
+            "hackerrank_guideline_layout": None,
+        },
+    )
+    app.build()
+    assert (
+        "requires a caller-supplied hackerrank_guideline_layout"
+        in app.warning.getvalue()
+    )
+
+
+def test_layout_accepts_unrelated_heading_vocabulary(
+    *,
+    make_app: Callable[..., SphinxTestApp],
+    tmp_path: Path,
+) -> None:
+    """Accept unrelated source labels and display labels without
+    changes.
+    """
+    source = tmp_path / "source"
+    guide = (
+        "Widgets\n=======\n\nStage one\n---------\n\nBrief\n~~~~~\n\n"
+        "Make a widget.\n\nCases\n~~~~~\n\nUse a blue widget.\n"
+    )
+    write_sources(source=source, files=_files(guide=guide, mapping=_MAPPING))
+    app = make_app(
+        srcdir=source,
+        exception_on_warning=True,
+        confoverrides={
+            **_configuration(),
+            "hackerrank_guideline_layout": GuidelineLayout(
+                part_marker="Brief",
+                groups=(
+                    SectionGroup(title="Work", sections=("Brief",)),
+                    SectionGroup(
+                        title="Examples",
+                        sections=("Cases",),
+                        include_headings=("Cases",),
+                    ),
+                ),
+            ),
+        },
+    )
+    app.build()
+    html = (
+        Path(app.outdir) / "topics/derived-interviewer-guideline.html"
+    ).read_text()
+    soup = BeautifulSoup(markup=html, features="html.parser")
+    for container in soup.select(selector=".hr-interviewer-guideline"):
+        assert [
+            summary.get_text()
+            for summary in container.select(
+                selector=":scope > details > details > summary"
+            )
+        ] == ["Work", "Examples"]
+        assert "Use a blue widget." in container.get_text()
+        assert "See the" not in container.get_text()

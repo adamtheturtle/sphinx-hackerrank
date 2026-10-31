@@ -1,6 +1,4 @@
-"""Derive a standard Interviewer Guideline from the maintained guide
-tree.
-"""
+"""Apply a caller-defined layout to the maintained guide tree."""
 
 import posixpath
 from collections.abc import Callable
@@ -8,23 +6,15 @@ from pathlib import Path
 from typing import Any, ClassVar, override
 
 from docutils import nodes
+from docutils.statemachine import StringList
 from sphinx_toolbox.collapse import CollapseNode, CollapseSummaryNode
 
+from sphinx_hackerrank.layout import GuidelineLayout
 from sphinx_hackerrank.sections import (
     InterviewerGuidelineSection,
     section_content,
 )
 from sphinx_hackerrank.targets import load_targets
-
-_CATEGORIES = (
-    ("Prompt", ("Prompt",)),
-    ("FAQ", ("FAQ",)),
-    (
-        "Signals and edge-case questions",
-        ("Follow up questions", "Key considerations"),
-    ),
-    ("Test cases", ("Test cases",)),
-)
 
 
 def _disclosure(*, title: str, content: list[nodes.Node]) -> CollapseNode:
@@ -52,9 +42,11 @@ def _relative_section_path(
     return " / ".join(reversed(path))
 
 
-def _selected_sections(*, part: nodes.section) -> dict[str, nodes.section]:
+def _selected_sections(
+    *, part: nodes.section, layout: GuidelineLayout
+) -> dict[str, nodes.section]:
     """Find supported categories regardless of their nesting in a part."""
-    titles = {title for _label, group in _CATEGORIES for title in group}
+    titles = {title for group in layout.groups for title in group.sections}
     found: dict[str, nodes.section] = {}
     for section in part.findall(condition=nodes.section):
         title = section[0].astext()
@@ -77,6 +69,7 @@ def _category_content(
     guide: str,
     language: str,
     exclude_admonitions: bool,
+    include_heading: bool,
 ) -> list[nodes.Node]:
     """Copy a category without duplicating separately grouped
     descendants.
@@ -92,7 +85,7 @@ def _category_content(
         section=section,
         guide=guide,
         language=language,
-        include_heading=section[0].astext() == "Key considerations",
+        include_heading=include_heading,
         exclude_sections=exclusions,
     )
     container = nodes.container()
@@ -125,15 +118,14 @@ def _part_content(
     guide: str,
     language: str,
     exclude_admonitions: bool,
+    layout: GuidelineLayout,
 ) -> CollapseNode:
-    """Arrange a part's existing sections in the standard category
-    order.
-    """
-    selected = _selected_sections(part=part)
+    """Arrange existing sections in the order supplied by the consumer."""
+    selected = _selected_sections(part=part, layout=layout)
     categories: list[nodes.Node] = []
-    for label, names in _CATEGORIES:
+    for group in layout.groups:
         content: list[nodes.Node] = []
-        for name in names:
+        for name in group.sections:
             if name in selected:
                 content.extend(
                     _category_content(
@@ -142,10 +134,11 @@ def _part_content(
                         guide=guide,
                         language=language,
                         exclude_admonitions=exclude_admonitions,
+                        include_heading=name in group.include_headings,
                     )
                 )
         if bool(content):
-            categories.append(_disclosure(title=label, content=content))
+            categories.append(_disclosure(title=group.title, content=content))
     return _disclosure(title=part[0].astext(), content=categories)
 
 
@@ -155,18 +148,22 @@ def _guide_content(
     guide: str,
     language: str,
     exclude_admonitions: bool,
+    layout: GuidelineLayout,
 ) -> list[nodes.Node]:
-    """Find every question part and the optional evaluation section."""
+    """Find parts and closing sections using caller-supplied headings."""
     parts = [
         section
         for section in document.findall(condition=nodes.section)
         if any(
-            isinstance(child, nodes.section) and child[0].astext() == "Prompt"
+            isinstance(child, nodes.section)
+            and child[0].astext() == layout.part_marker
             for child in section.children
         )
     ]
     if not bool(parts):
-        message = "No question parts with a Prompt section found in the guide"
+        message = (
+            f"No guide parts with a {layout.part_marker!r} subsection found"
+        )
         raise ValueError(message)
     content: list[nodes.Node] = [
         _part_content(
@@ -174,32 +171,37 @@ def _guide_content(
             guide=guide,
             language=language,
             exclude_admonitions=exclude_admonitions,
+            layout=layout,
         )
         for part in parts
     ]
-    evaluations = [
-        section
-        for section in document.findall(condition=nodes.section)
-        if section[0].astext() == "Evaluation"
-    ]
-    if len(evaluations) > 1:
-        message = "Expected at most one Evaluation section in the guide"
-        raise ValueError(message)
-    if bool(evaluations):
-        evaluation = _category_content(
-            section=evaluations[0],
-            selected={},
-            guide=guide,
-            language=language,
-            exclude_admonitions=exclude_admonitions,
-        )
-        if bool(evaluation):
-            content.append(_disclosure(title="Evaluation", content=evaluation))
+    for heading in layout.trailing_sections:
+        matches = [
+            section
+            for section in document.findall(condition=nodes.section)
+            if section[0].astext() == heading
+        ]
+        if len(matches) > 1:
+            message = f"Expected at most one trailing section for {heading!r}"
+            raise ValueError(message)
+        if bool(matches):
+            trailing = _category_content(
+                section=matches[0],
+                selected={},
+                guide=guide,
+                language=language,
+                exclude_admonitions=exclude_admonitions,
+                include_heading=False,
+            )
+            if bool(trailing):
+                content.append(_disclosure(title=heading, content=trailing))
     return content
 
 
 class InterviewerGuideline(InterviewerGuidelineSection):
-    """Compose all mapped languages from the guide's own section structure."""
+    """Compose mapped language views using the consumer's layout
+    policy.
+    """
 
     # Docutils defines option converter return values as Any.
     option_spec: ClassVar[dict[str, Callable[[str], Any]] | None] = {}  # pyrefly: ignore[explicit-any]
@@ -207,6 +209,12 @@ class InterviewerGuideline(InterviewerGuidelineSection):
     @override
     def run(self) -> list[nodes.Node]:
         """Derive the mapped language views from the source guide."""
+        layout = self.config.hackerrank_guideline_layout
+        if not isinstance(layout, GuidelineLayout):
+            raise self.error(
+                message="interviewer-guideline requires a "
+                "caller-supplied hackerrank_guideline_layout"
+            )
         source_path = self._source_path()
         source_root = Path(self.env.srcdir).resolve()
         guide = (
@@ -248,7 +256,9 @@ class InterviewerGuideline(InterviewerGuidelineSection):
                 ]
             )
             container += nodes.rubric("", title.astext() + ": " + language)
-            container += self._introduction(guide=guide)
+            container.extend(
+                item=self._introduction(guide=guide, layout=layout)
+            )
             try:
                 container.extend(
                     item=_guide_content(
@@ -256,6 +266,7 @@ class InterviewerGuideline(InterviewerGuidelineSection):
                         guide=guide,
                         language=language,
                         exclude_admonitions=self.config.hackerrank_exclude_admonitions,
+                        layout=layout,
                     )
                 )
             except ValueError as error:
@@ -265,8 +276,10 @@ class InterviewerGuideline(InterviewerGuidelineSection):
             node.document = self.state.document
         return [root]
 
-    def _introduction(self, *, guide: str) -> nodes.paragraph:
-        """Link to the maintained guide with the configured source URL."""
+    def _introduction(
+        self, *, guide: str, layout: GuidelineLayout
+    ) -> list[nodes.Node]:
+        """Render the consumer's introductory RST with its source URL."""
         source_url = self.config.hackerrank_source_url
         uri = (
             source_url.rstrip("/")
@@ -279,13 +292,14 @@ class InterviewerGuideline(InterviewerGuidelineSection):
                 start=posixpath.dirname(self.env.docname),
             )
         )
-        introduction = nodes.paragraph(
-            "",
-            "Interviewer only. "
-            "Share prompts and test cases as you reach each part. See the ",
+        container = nodes.container()
+        _ = self.state.nested_parse(
+            block=StringList(
+                initlist=layout.introduction.replace(
+                    "{source_url}", uri
+                ).splitlines()
+            ),
+            input_offset=self.content_offset,
+            node=container,
         )
-        introduction += nodes.reference("", "full guide", refuri=uri)
-        introduction += nodes.Text(
-            data=" for interview setup and reference solutions."
-        )
-        return introduction
+        return container.children
