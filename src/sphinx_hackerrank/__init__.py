@@ -9,6 +9,13 @@ from sphinx.config import Config
 from sphinx_hackerrank.builder import HackerRankBuilder
 from sphinx_hackerrank.compose import InterviewerGuideline
 from sphinx_hackerrank.layout import GuidelineLayout
+from sphinx_hackerrank.recipe import (
+    GuidelineAfter,
+    GuidelineBefore,
+    GuidelineGroup,
+    GuidelineIntroduction,
+    GuidelineSelect,
+)
 from sphinx_hackerrank.sections import (
     InterviewerGuidelineSection,
     discard_guide_cache,
@@ -91,6 +98,11 @@ def setup(app: Sphinx) -> dict[str, object]:
         name="interviewer-guideline-section", cls=InterviewerGuidelineSection
     )
     app.add_directive(name="interviewer-guideline", cls=InterviewerGuideline)
+    app.add_directive(name="guideline-introduction", cls=GuidelineIntroduction)
+    app.add_directive(name="guideline-group", cls=GuidelineGroup)
+    app.add_directive(name="guideline-select", cls=GuidelineSelect)
+    app.add_directive(name="guideline-before", cls=GuidelineBefore)
+    app.add_directive(name="guideline-after", cls=GuidelineAfter)
     _ = app.connect(event="doctree-read", callback=discard_guide_cache)
     _ = app.connect(
         event="doctree-resolved", callback=simplify_interviewer_guideline

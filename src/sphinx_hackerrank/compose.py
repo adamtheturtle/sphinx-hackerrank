@@ -12,6 +12,7 @@ from docutils.statemachine import StringList
 from sphinx_toolbox.collapse import CollapseNode, CollapseSummaryNode
 
 from sphinx_hackerrank.layout import GuidelineLayout, SectionSelection
+from sphinx_hackerrank.recipe import parse_layout
 from sphinx_hackerrank.sections import (
     InterviewerGuidelineSection,
     section_content,
@@ -366,26 +367,19 @@ class InterviewerGuideline(InterviewerGuidelineSection):
     policy.
     """
 
+    has_content = True
+
     # Docutils defines option converter return values as Any.
     option_spec: ClassVar[dict[str, Callable[[str], Any]] | None] = {  # pyrefly: ignore[explicit-any]
-        "layout": directives.unchanged_required
+        "layout": directives.unchanged_required,
+        "parts": directives.unchanged_required,
+        "minimum-parts": directives.positive_int,
     }
 
     @override
     def run(self) -> list[nodes.Node]:
         """Derive the mapped language views from the source guide."""
-        if "layout" in self.options:
-            layout = self.config.hackerrank_guideline_layouts.get(
-                self.options["layout"]
-            )
-        else:
-            layout = self.config.hackerrank_guideline_layout
-        if not isinstance(layout, GuidelineLayout):
-            raise self.error(
-                message="interviewer-guideline requires a "
-                "caller-supplied layout (set hackerrank_guideline_layout "
-                "or choose a configured :layout:)"
-            )
+        layout = self._read_layout()
         source_path = self._source_path()
         source_root = Path(self.env.srcdir).resolve()
         guide = (
@@ -449,6 +443,43 @@ class InterviewerGuideline(InterviewerGuidelineSection):
         for node in root.findall():
             node.document = self.state.document
         return [root]
+
+    def _read_layout(self) -> GuidelineLayout:
+        """Resolve document-owned declarations or explicit Python
+        configuration.
+        """
+        inline = bool(self.content) or any(
+            name in self.options for name in ("parts", "minimum-parts")
+        )
+        if inline:
+            if "layout" in self.options:
+                raise self.error(
+                    message="An inline recipe cannot be combined with :layout:"
+                )
+            try:
+                return parse_layout(directive=self)
+            except (TypeError, ValueError) as error:
+                raise self.error(message=str(object=error)) from error
+        return self._configured_layout()
+
+    def _configured_layout(self) -> GuidelineLayout:
+        """Retain explicit Python layouts for existing programmatic
+        consumers.
+        """
+        if "layout" in self.options:
+            layout = self.config.hackerrank_guideline_layouts.get(
+                self.options["layout"]
+            )
+        else:
+            layout = self.config.hackerrank_guideline_layout
+        if not isinstance(layout, GuidelineLayout):
+            raise self.error(
+                message="interviewer-guideline requires a "
+                "caller-supplied layout "
+                "(declare an inline recipe, set hackerrank_guideline_layout, "
+                "or choose a configured :layout:)"
+            )
+        return layout
 
     def _introduction(
         self, *, guide: str, layout: GuidelineLayout

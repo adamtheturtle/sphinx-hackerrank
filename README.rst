@@ -41,80 +41,71 @@ Authoring
 ---------
 
 Keep the full guide and its Interviewer Guideline RST beside each other.
-Define the layout in the consuming project's ``conf.py``:
-
-.. code-block:: python
-
-   """Sphinx configuration."""
-
-   from sphinx_hackerrank.layout import (
-       GroupRequirement,
-       GuidelineLayout,
-       SectionGroup,
-       SectionSelection,
-   )
-
-   hackerrank_guideline_layouts = {
-       "exercise": GuidelineLayout(
-           part_pattern=r"Stage [1-9]\d*",
-           minimum_parts=2,
-           groups=(
-               SectionGroup(
-                   title="Work",
-                   sections=(SectionSelection(headings=("Brief", "Briefs")),),
-               ),
-               SectionGroup(
-                   title="Examples",
-                   sections=(
-                       SectionSelection(
-                           headings=("Cases",),
-                           required=False,
-                           include_heading=True,
-                       ),
-                   ),
-               ),
-           ),
-           trailing_sections=(SectionSelection(headings=("Review",)),),
-           required_groups=(
-               GroupRequirement(part_pattern=r"Stage 1", groups=("Examples",)),
-           ),
-           introduction="See the `source guide <{source_url}>`_.",
-       ),
-   }
-
-The Interviewer Guideline RST selects its consumer-defined layout:
+Declare the composition in the Interviewer Guideline RST:
 
 .. code-block:: rst
 
    .. interviewer-guideline:: guide.rst
-      :layout: exercise
+      :parts: Stage [1-9]\d*
+      :minimum-parts: 2
+
+      .. guideline-introduction::
+
+         See the `source guide <{source_url}>`_.
+
+      .. guideline-before:: Shared brief
+
+      .. guideline-group:: Work
+
+         .. guideline-select:: Brief
+            :alternatives: Briefs
+
+      .. guideline-group:: Examples
+         :required-for: Stage 1
+
+         .. guideline-select:: Cases
+            :optional:
+            :include-heading:
+
+      .. guideline-after:: Review
 
 The package has no built-in section names, grouping rules, or introductory wording.
-``part_pattern`` fully matches each part's own heading, independently of its contents.
-``minimum_parts`` rejects an incomplete set of parts.
-Groups combine selections under the supplied display title.
-Each ``SectionSelection`` chooses exactly one of its alternative ``headings``.
-Selections are required by default and must retain content after filtering.
-Set ``required=False`` for optional sections and ``include_heading=True`` to retain their headings.
-Select ``headings=(".",)`` to use the part's own body when there is no category heading.
-Separately selected descendants are excluded from that body.
+``conf.py`` configures the extension, languages, and site-wide settings.
+Each guideline's RST owns its selections, presentation, and completeness rules.
+The full guide owns the selected content, and the adjacent YAML mapping owns question identities and languages.
 
-``leading_sections`` and ``trailing_sections`` select shared sections before or after the parts.
-They cannot overlap a part.
-For coding stages, ``required_groups`` can require nonempty examples while discussion stages omit them.
-Each requirement also has a minimum match count to detect renamed parts.
-``introduction`` is RST supplied by the consumer, with ``{source_url}`` replaced by the configured guide URL.
-Its default is empty.
+``:parts:`` fully matches each part's own heading, independently of its contents.
+``:minimum-parts:`` rejects an incomplete set of parts and defaults to one.
+Each ``guideline-group`` combines its selections under the supplied display title.
+Groups and selections appear in declaration order.
+A ``guideline-select`` is required by default and must retain content after filtering.
+Add ``:optional:`` for a section which may be absent or empty, and ``:include-heading:`` to retain its source heading.
+``:alternatives:`` lists other accepted heading spellings, one per line.
+Exactly one spelling must match.
+Use ``guideline-select:: .`` for a part whose instructions are its own body.
+Separately selected descendants appear once in their own group.
 
-Multiple named layouts allow guides with different structures in the same project.
-For a single layout, set ``hackerrank_guideline_layout`` and omit ``:layout:``.
+A group's ``:required-for:`` pattern requires nonempty content in matching parts, even when its selections are optional elsewhere.
+Its optional ``:minimum-parts:`` requires a minimum number of matching parts and defaults to one.
+For example, coding stages can require examples while discussion stages omit them.
+``guideline-before`` and ``guideline-after`` select shared content before or after all parts.
+They accept the same options as ``guideline-select`` and cannot overlap a part.
+
+An optional ``guideline-introduction`` contains introductory RST, with ``{source_url}`` replaced by the configured guide URL.
+Other prose belongs in the full guide.
+Native ``include`` directives can share recipe declarations or selections, with dependencies tracked for incremental builds.
+Recipe declarations are validated and consumed before rendering.
+Misplaced declarations, invalid nesting, and unsupported recipe content fail the build.
 
 The directive derives its page title from the guide and its languages from the adjacent question mapping.
-Selected sections can be nested beneath other selections without requiring parent paths in the layout.
-They appear once in their own group.
+Source selections can be nested beneath other selections without requiring parent paths in the recipe.
 Optional empty groups are omitted after admonitions are removed.
-A missing layout, missing mappings, incomplete parts, missing required content, or ambiguous selected headings fail the build.
-Changing the guide, mapping, or configured layout refreshes the view.
+Missing mappings, incomplete parts, missing required content, and ambiguous selected headings fail the build.
+Changing the guide, mapping, recipe, or an included recipe file refreshes the view.
+
+Programmatic consumers can still configure ``GuidelineLayout``, ``SectionGroup``, ``SectionSelection``, and ``GroupRequirement`` from ``sphinx_hackerrank.layout``.
+``hackerrank_guideline_layout`` supplies a default Python layout, and ``hackerrank_guideline_layouts`` maps names to layouts selected with ``:layout:``.
+An inline recipe cannot be combined with ``:layout:``.
 
 For other layouts, include native sections by exact heading path or an existing RST section label:
 
