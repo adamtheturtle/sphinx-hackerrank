@@ -1,5 +1,5 @@
 .. interviewer-guideline:: widgets.rst
-   :parts: Part [1-9]\d*
+   :parts: Part 1
 
    .. guideline-introduction::
 

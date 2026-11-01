@@ -11,7 +11,11 @@ from docutils.parsers.rst import directives
 from docutils.statemachine import StringList
 from sphinx_toolbox.collapse import CollapseNode, CollapseSummaryNode
 
-from sphinx_hackerrank.layout import GuidelineLayout, SectionSelection
+from sphinx_hackerrank.layout import (
+    GroupRequirement,
+    GuidelineLayout,
+    SectionSelection,
+)
 from sphinx_hackerrank.recipe import parse_recipe
 from sphinx_hackerrank.sections import (
     InterviewerGuidelineSection,
@@ -212,6 +216,26 @@ def _part_content(
     return _disclosure(title=part[0].astext(), content=categories), rendered
 
 
+def _matches_part(
+    *, title: str, selector: GuidelineLayout | GroupRequirement
+) -> bool:
+    """Match literal headings directly, with patterns kept as an explicit
+    mode.
+    """
+    pattern = selector.part_pattern
+    if pattern is None:
+        return title in selector.part_headings
+    return re.fullmatch(pattern=pattern, string=title) is not None
+
+
+def _require_parts(*, available: set[str], required: tuple[str, ...]) -> None:
+    """Reject every missing heading in an explicit part list."""
+    missing = set(required) - available
+    if bool(missing):
+        message = f"Required guide parts are missing: {sorted(missing)!r}"
+        raise ValueError(message)
+
+
 def _find_parts(
     *, document: nodes.document, layout: GuidelineLayout
 ) -> list[nodes.section]:
@@ -221,15 +245,22 @@ def _find_parts(
     parts = [
         section
         for section in document.findall(condition=nodes.section)
-        if re.fullmatch(
-            pattern=layout.part_pattern, string=section[0].astext()
-        )
-        is not None
+        if _matches_part(title=section[0].astext(), selector=layout)
     ]
+    _require_parts(
+        available={part[0].astext() for part in parts},
+        required=layout.part_headings,
+    )
+    selector = (
+        layout.part_pattern
+        if layout.part_pattern is not None
+        else layout.part_headings
+    )
     if len(parts) < layout.minimum_parts:
         message = (
             f"Expected at least {layout.minimum_parts} guide parts matching "
-            f"{layout.part_pattern!r}, found {len(parts)}"
+            f"{selector!r}, "
+            f"found {len(parts)}"
         )
         raise ValueError(message)
     titles = [part[0].astext() for part in parts]
@@ -328,15 +359,23 @@ def _guide_content(
         content.append(disclosure)
         rendered[part[0].astext()] = groups
     for requirement in layout.required_groups:
+        selector = (
+            requirement.part_pattern
+            if requirement.part_pattern is not None
+            else requirement.part_headings
+        )
         matches = [
             title
             for title in rendered
-            if re.fullmatch(pattern=requirement.part_pattern, string=title)
-            is not None
+            if _matches_part(title=title, selector=requirement)
         ]
+        _require_parts(
+            available=set(matches), required=requirement.part_headings
+        )
         if len(matches) < requirement.minimum_parts:
             message = (
-                f"Group requirement {requirement.part_pattern!r} "
+                "Group requirement "
+                f"{selector!r} "
                 "expected at least "
                 f"{requirement.minimum_parts} parts, found {len(matches)}"
             )
@@ -373,6 +412,7 @@ class InterviewerGuideline(InterviewerGuidelineSection):
     option_spec: ClassVar[dict[str, Callable[[str], Any]] | None] = {  # pyrefly: ignore[explicit-any]
         "layout": directives.unchanged_required,
         "parts": directives.unchanged_required,
+        "part-pattern": directives.unchanged_required,
         "minimum-parts": directives.positive_int,
     }
 
@@ -449,7 +489,8 @@ class InterviewerGuideline(InterviewerGuidelineSection):
         configuration.
         """
         inline = bool(self.content) or any(
-            name in self.options for name in ("parts", "minimum-parts")
+            name in self.options
+            for name in ("parts", "part-pattern", "minimum-parts")
         )
         if inline:
             if "layout" in self.options:

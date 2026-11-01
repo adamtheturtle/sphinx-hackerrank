@@ -45,8 +45,8 @@ _GUIDE = textwrap.dedent(
     """
 )
 _RECIPE = r""".. interviewer-guideline:: guide.rst
-   :parts: Stage .*
-   :minimum-parts: 2
+   :parts: Stage one
+           Stage two
 
    .. include:: recipe.txt
 """
@@ -60,8 +60,8 @@ _DECLARATIONS = """\
 .. guideline-before:: Shared brief
 
 .. guideline-group:: Work
-   :required-for: Stage .*
-   :minimum-parts: 2
+   :required-for: Stage one
+                  Stage two
 
    .. include:: selections.txt
 
@@ -233,7 +233,7 @@ def test_inline_recipe_tracks_native_includes(
         (
             (
                 ".. interviewer-guideline:: guide.rst\n"
-                "   :parts: Stage .*\n"
+                "   :part-pattern: Stage .*\n"
                 "   :layout: existing\n"
             ),
             "cannot be combined",
@@ -241,7 +241,7 @@ def test_inline_recipe_tracks_native_includes(
         (
             (
                 ".. interviewer-guideline:: guide.rst\n"
-                "   :parts: [\n"
+                "   :part-pattern: [\n"
                 "\n"
                 "   .. guideline-group:: Work\n"
                 "\n"
@@ -250,13 +250,16 @@ def test_inline_recipe_tracks_native_includes(
             "Invalid part pattern",
         ),
         (
-            ".. interviewer-guideline:: guide.rst\n   :parts: Stage .*\n",
+            (
+                ".. interviewer-guideline:: guide.rst\n"
+                "   :part-pattern: Stage .*\n"
+            ),
             "nonempty names",
         ),
         (
             (
                 ".. interviewer-guideline:: guide.rst\n"
-                "   :parts: Stage .*\n"
+                "   :part-pattern: Stage .*\n"
                 "\n"
                 "   Unstructured prose.\n"
             ),
@@ -265,7 +268,7 @@ def test_inline_recipe_tracks_native_includes(
         (
             (
                 ".. interviewer-guideline:: guide.rst\n"
-                "   :parts: Stage .*\n"
+                "   :part-pattern: Stage .*\n"
                 "\n"
                 "   .. guideline-group:: Work\n"
                 "\n"
@@ -276,7 +279,7 @@ def test_inline_recipe_tracks_native_includes(
         (
             (
                 ".. interviewer-guideline:: guide.rst\n"
-                "   :parts: Stage .*\n"
+                "   :part-pattern: Stage .*\n"
                 "\n"
                 "   .. guideline-group:: Work\n"
                 "      :minimum-parts: 2\n"
@@ -288,10 +291,10 @@ def test_inline_recipe_tracks_native_includes(
         (
             (
                 ".. interviewer-guideline:: guide.rst\n"
-                "   :parts: Stage .*\n"
+                "   :part-pattern: Stage .*\n"
                 "\n"
                 "   .. guideline-group:: Work\n"
-                "      :required-for: [\n"
+                "      :required-for-pattern: [\n"
                 "\n"
                 "      .. guideline-select:: .\n"
             ),
@@ -300,7 +303,7 @@ def test_inline_recipe_tracks_native_includes(
         (
             (
                 ".. interviewer-guideline:: guide.rst\n"
-                "   :parts: Stage .*\n"
+                "   :part-pattern: Stage .*\n"
                 "\n"
                 "   .. guideline-group:: Work\n"
                 "\n"
@@ -312,7 +315,7 @@ def test_inline_recipe_tracks_native_includes(
         (
             (
                 ".. interviewer-guideline:: guide.rst\n"
-                "   :parts: Stage .*\n"
+                "   :part-pattern: Stage .*\n"
                 "\n"
                 "   .. guideline-introduction::\n"
                 "\n"
@@ -327,13 +330,100 @@ def test_inline_recipe_tracks_native_includes(
         (
             (
                 ".. interviewer-guideline:: guide.rst\n"
-                "   :parts: Stage .*\n"
+                "   :part-pattern: Stage .*\n"
                 "\n"
                 "   .. guideline-group:: Work\n"
                 "\n"
                 "      .. guideline-select:: Missing\n"
             ),
             "Required selection ('Missing',) missing",
+        ),
+        (
+            (
+                ".. interviewer-guideline:: guide.rst\n"
+                "   :parts: Stage one\n"
+                "           Missing\n"
+                "\n"
+                "   .. guideline-group:: Work\n"
+                "\n"
+                "      .. guideline-select:: .\n"
+            ),
+            "Required guide parts are missing: ['Missing']",
+        ),
+        (
+            (
+                ".. interviewer-guideline:: guide.rst\n"
+                "   :parts: Stage one\n"
+                "           Stage one\n"
+                "\n"
+                "   .. guideline-group:: Work\n"
+                "\n"
+                "      .. guideline-select:: .\n"
+            ),
+            "must not contain duplicates",
+        ),
+        (
+            (
+                ".. interviewer-guideline:: guide.rst\n"
+                "   :parts: Stage one\n"
+                "   :minimum-parts: 1\n"
+                "\n"
+                "   .. guideline-group:: Work\n"
+                "\n"
+                "      .. guideline-select:: .\n"
+            ),
+            "Exact part lists cannot be combined",
+        ),
+        (
+            (
+                ".. interviewer-guideline:: guide.rst\n"
+                "   :parts: Stage one\n"
+                "   :part-pattern: Stage .*\n"
+                "\n"
+                "   .. guideline-group:: Work\n"
+                "\n"
+                "      .. guideline-select:: .\n"
+            ),
+            "Exact part lists cannot be combined",
+        ),
+        (
+            (
+                ".. interviewer-guideline:: guide.rst\n"
+                "   :parts: Stage one\n"
+                "           Stage two\n"
+                "\n"
+                "   .. guideline-group:: Work\n"
+                "      :required-for: Absent\n"
+                "\n"
+                "      .. guideline-select:: .\n"
+            ),
+            "Required guide parts are missing: ['Absent']",
+        ),
+        (
+            (
+                ".. interviewer-guideline:: guide.rst\n"
+                "   :parts: Stage one\n"
+                "\n"
+                "   .. guideline-group:: Work\n"
+                "      :required-for: Stage one\n"
+                "      :minimum-parts: 1\n"
+                "\n"
+                "      .. guideline-select:: .\n"
+            ),
+            "Exact part lists cannot be combined",
+        ),
+        (
+            (
+                ".. interviewer-guideline:: guide.rst\n"
+                "   :parts: Stage one\n"
+                "\n"
+                "   .. guideline-group:: Work\n"
+                "      :required-for: Stage one\n"
+                "      :required-for-pattern: Stage .*\n"
+                "\n"
+                "      .. guideline-select:: .\n"
+            ),
+            "Exact part lists cannot be combined",
         ),
         *[
             (
@@ -365,3 +455,32 @@ def test_invalid_recipe_reports_directive_errors(
     app = make_app(srcdir=source, confoverrides=_configuration())
     app.build()
     assert message in app.warning.getvalue()
+
+
+def test_part_names_treat_regex_punctuation_literally(
+    *,
+    make_app: Callable[..., SphinxTestApp],
+    tmp_path: Path,
+) -> None:
+    """An explicit bracketed heading never expands to similarly named
+    parts.
+    """
+    source = tmp_path / "source"
+    files = {
+        **_sources(recipe=_RECIPE.replace("Stage one", "Q[1-3]")),
+        "guide.rst": _GUIDE.replace("Stage one", "Q[1-3]")
+        + "\nQ1\n--\n\nUnselected stage.\n",
+        "recipe.txt": _DECLARATIONS.replace("Stage one", "Q[1-3]"),
+        "selections.txt": ".. guideline-select:: .\n",
+        "intro.txt": "Interviewer only.\n",
+    }
+    write_sources(source=source, files=files)
+    app = make_app(
+        srcdir=source,
+        exception_on_warning=True,
+        confoverrides=_configuration(),
+    )
+    app.build()
+    html = (Path(app.outdir) / "view-interviewer-guideline.html").read_text()
+    assert "Q[1-3]" in html
+    assert "Unselected stage." not in html
