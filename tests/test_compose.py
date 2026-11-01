@@ -11,8 +11,8 @@ from bs4 import BeautifulSoup
 from sphinx.testing.util import SphinxTestApp
 
 from sphinx_hackerrank.layout import (
-    GroupRequirement,
     GuidelineLayout,
+    GuidelinePart,
     SectionGroup,
     SectionSelection,
 )
@@ -98,48 +98,56 @@ def _configuration(*, part_headings: tuple[str, ...]) -> dict[str, object]:
     return {
         "extensions": ["sphinx_hackerrank"],
         "hackerrank_guideline_layout": GuidelineLayout(
-            part_headings=part_headings,
-            groups=(
-                SectionGroup(
-                    title="Prompt",
-                    sections=(SectionSelection(headings=("Prompt",)),),
-                ),
-                SectionGroup(
-                    title="FAQ",
-                    sections=(
-                        SectionSelection(headings=("FAQ",), required=False),
-                    ),
-                ),
-                SectionGroup(
-                    title="Signals and edge-case questions",
-                    sections=(
-                        SectionSelection(
-                            headings=("Follow up questions",), required=False
+            parts=tuple(
+                GuidelinePart(
+                    heading=heading,
+                    groups=(
+                        SectionGroup(
+                            title="Prompt",
+                            sections=(SectionSelection(headings=("Prompt",)),),
                         ),
-                        SectionSelection(
-                            headings=("Key considerations",),
-                            required=False,
-                            include_heading=True,
+                        SectionGroup(
+                            title="FAQ",
+                            sections=(
+                                SectionSelection(
+                                    headings=("FAQ",), required=False
+                                ),
+                            ),
+                        ),
+                        SectionGroup(
+                            title="Signals and edge-case questions",
+                            sections=(
+                                SectionSelection(
+                                    headings=("Follow up questions",),
+                                    required=False,
+                                ),
+                                SectionSelection(
+                                    headings=("Key considerations",),
+                                    required=False,
+                                    include_heading=True,
+                                ),
+                            ),
+                        ),
+                        SectionGroup(
+                            title="Test cases",
+                            sections=(
+                                SectionSelection(
+                                    headings=("Test cases",), required=False
+                                ),
+                            ),
                         ),
                     ),
-                ),
-                SectionGroup(
-                    title="Test cases",
-                    sections=(
-                        SectionSelection(
-                            headings=("Test cases",), required=False
-                        ),
-                    ),
-                ),
+                )
+                for heading in part_headings
             ),
             trailing_sections=(
                 SectionSelection(headings=("Evaluation",), required=False),
             ),
             introduction=(
-                "Interviewer only. "
-                "Share prompts and test cases as you reach each part. See the "
-                "`full guide <{source_url}>`_ for interview setup "
-                "and reference solutions."
+                "Interviewer only. Share prompts and test cases "
+                "as you reach each part. See the `full guide "
+                "<{source_url}>`_ for interview setup and "
+                "reference solutions."
             ),
         ),
         "hackerrank_jinja_context": "snippets",
@@ -304,12 +312,19 @@ def test_derived_layout_tracks_guide_and_mapping(
             "Required guide parts are missing",
         ),
         (
-            "Widgets\n=======\n\nQ1\n--\n\nPrompt\n~~~~~~\n\nHi.\n\nFAQ\n~~~\n\nOne.\n\nFAQ\n~~~\n\nTwo.\n",
+            (
+                "Widgets\n=======\n\nQ1\n--\n\nPrompt\n~~~~~~\n\nHi.\n\nFAQ\n"
+                "~~~\n\nOne.\n\nFAQ\n~~~\n\nTwo.\n"
+            ),
             _MAPPING,
             "Ambiguous selection",
         ),
         (
-            "Widgets\n=======\n\nQ1\n--\n\nPrompt\n~~~~~~\n\nHi.\n\nEvaluation\n----------\n\nOne.\n\nEvaluation\n----------\n\nTwo.\n",
+            (
+                "Widgets\n=======\n\nQ1\n--\n\nPrompt\n~~~~~~\n\nHi.\n\nEval"
+                "uation\n----------\n\nOne.\n\nEvaluation\n----------\n\n"
+                "Two.\n"
+            ),
             _MAPPING,
             "Ambiguous selection",
         ),
@@ -350,7 +365,8 @@ def test_derived_layout_allows_a_guide_without_evaluation(
     guide = (
         "Widgets\n=======\n\nBuild a widget\n--------------\n\n"
         "Prompt\n~~~~~~\n\nBuild it.\n"
-        "\nKey considerations\n~~~~~~~~~~~~~~~~~~\n\n.. note:: No content.\n"
+        "\nKey considerations\n~~~~~~~~~~~~~~~~~~\n\n"
+        ".. note:: No content.\n"
     )
     if empty_evaluation:
         guide += "\nEvaluation\n----------\n\n.. warning:: No content.\n"
@@ -412,21 +428,28 @@ def test_layout_accepts_unrelated_heading_vocabulary(
         confoverrides={
             **_configuration(part_headings=("Stage one",)),
             "hackerrank_guideline_layout": GuidelineLayout(
-                part_headings=("Stage one",),
-                groups=(
-                    SectionGroup(
-                        title="Work",
-                        sections=(SectionSelection(headings=("Brief",)),),
-                    ),
-                    SectionGroup(
-                        title="Examples",
-                        sections=(
-                            SectionSelection(
-                                headings=("Cases",), include_heading=True
+                parts=(
+                    GuidelinePart(
+                        heading="Stage one",
+                        groups=(
+                            SectionGroup(
+                                title="Work",
+                                sections=(
+                                    SectionSelection(headings=("Brief",)),
+                                ),
+                            ),
+                            SectionGroup(
+                                title="Examples",
+                                sections=(
+                                    SectionSelection(
+                                        headings=("Cases",),
+                                        include_heading=True,
+                                    ),
+                                ),
                             ),
                         ),
                     ),
-                ),
+                )
             ),
         },
     )
@@ -450,45 +473,93 @@ def test_layout_accepts_unrelated_heading_vocabulary(
     argnames=("guide", "layout", "message"),
     argvalues=[
         (
-            "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n\nQ2\n--\n\nRenamed\n~~~~~~~\n\nTwo.\n",
+            (
+                "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n\nQ2\n--"
+                "\n\nRenamed\n~~~~~~~\n\nTwo.\n"
+            ),
             GuidelineLayout(
-                part_headings=("Q1", "Q2"),
-                groups=(
-                    SectionGroup(
-                        title="Work",
-                        sections=(
-                            SectionSelection(headings=("Brief", "Briefs")),
+                parts=(
+                    GuidelinePart(
+                        heading="Q1",
+                        groups=(
+                            SectionGroup(
+                                title="Work",
+                                sections=(
+                                    SectionSelection(
+                                        headings=("Brief", "Briefs")
+                                    ),
+                                ),
+                            ),
                         ),
                     ),
-                ),
+                    GuidelinePart(
+                        heading="Q2",
+                        groups=(
+                            SectionGroup(
+                                title="Work",
+                                sections=(
+                                    SectionSelection(
+                                        headings=("Brief", "Briefs")
+                                    ),
+                                ),
+                            ),
+                        ),
+                    ),
+                )
             ),
             "Required selection ('Brief', 'Briefs') missing in 'Q2'",
         ),
         (
             "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n",
             GuidelineLayout(
-                part_headings=("Q1", "Q2"),
-                groups=(
-                    SectionGroup(
-                        title="Work",
-                        sections=(SectionSelection(headings=("Brief",)),),
+                parts=(
+                    GuidelinePart(
+                        heading="Q1",
+                        groups=(
+                            SectionGroup(
+                                title="Work",
+                                sections=(
+                                    SectionSelection(headings=("Brief",)),
+                                ),
+                            ),
+                        ),
                     ),
-                ),
+                    GuidelinePart(
+                        heading="Q2",
+                        groups=(
+                            SectionGroup(
+                                title="Work",
+                                sections=(
+                                    SectionSelection(headings=("Brief",)),
+                                ),
+                            ),
+                        ),
+                    ),
+                )
             ),
             "Required guide parts are missing",
         ),
         (
-            "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n\nBriefs\n~~~~~~\n\nTwo.\n",
+            (
+                "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n\nBrief"
+                "s\n~~~~~~\n\nTwo.\n"
+            ),
             GuidelineLayout(
-                part_headings=("Q1",),
-                groups=(
-                    SectionGroup(
-                        title="Work",
-                        sections=(
-                            SectionSelection(headings=("Brief", "Briefs")),
+                parts=(
+                    GuidelinePart(
+                        heading="Q1",
+                        groups=(
+                            SectionGroup(
+                                title="Work",
+                                sections=(
+                                    SectionSelection(
+                                        headings=("Brief", "Briefs")
+                                    ),
+                                ),
+                            ),
                         ),
                     ),
-                ),
+                )
             ),
             "Ambiguous selection",
         ),
@@ -498,13 +569,19 @@ def test_layout_accepts_unrelated_heading_vocabulary(
                 ".. note:: Private content only.\n"
             ),
             GuidelineLayout(
-                part_headings=("Q1",),
-                groups=(
-                    SectionGroup(
-                        title="Work",
-                        sections=(SectionSelection(headings=("Brief",)),),
+                parts=(
+                    GuidelinePart(
+                        heading="Q1",
+                        groups=(
+                            SectionGroup(
+                                title="Work",
+                                sections=(
+                                    SectionSelection(headings=("Brief",)),
+                                ),
+                            ),
+                        ),
                     ),
-                ),
+                )
             ),
             "is empty after filtering",
         ),
@@ -514,100 +591,116 @@ def test_layout_accepts_unrelated_heading_vocabulary(
                 ".. note:: Private content only.\n"
             ),
             GuidelineLayout(
-                part_headings=("Q1",),
-                groups=(
-                    SectionGroup(
-                        title="Work",
-                        sections=(
-                            SectionSelection(
-                                headings=("Brief",), required=False
+                parts=(
+                    GuidelinePart(
+                        heading="Q1",
+                        groups=(
+                            SectionGroup(
+                                title="Work",
+                                sections=(
+                                    SectionSelection(
+                                        headings=("Brief",), required=False
+                                    ),
+                                ),
                             ),
                         ),
                     ),
-                ),
+                )
             ),
             "has no rendered content",
         ),
         (
-            "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n\nQ1\n--\n\nBrief\n~~~~~\n\nTwo.\n",
+            (
+                "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n\nQ1\n--"
+                "\n\nBrief\n~~~~~\n\nTwo.\n"
+            ),
             GuidelineLayout(
-                part_headings=("Q1",),
-                groups=(
-                    SectionGroup(
-                        title="Work",
-                        sections=(SectionSelection(headings=("Brief",)),),
+                parts=(
+                    GuidelinePart(
+                        heading="Q1",
+                        groups=(
+                            SectionGroup(
+                                title="Work",
+                                sections=(
+                                    SectionSelection(headings=("Brief",)),
+                                ),
+                            ),
+                        ),
                     ),
-                ),
+                )
             ),
             "duplicate headings",
         ),
         (
             "Widgets\n=======\n\nQ1\n--\n\nQ2\n~~\n\nBrief\n^^^^^\n\nOne.\n",
             GuidelineLayout(
-                part_headings=("Q1", "Q2"),
-                groups=(
-                    SectionGroup(
-                        title="Work",
-                        sections=(SectionSelection(headings=("Brief",)),),
+                parts=(
+                    GuidelinePart(
+                        heading="Q1",
+                        groups=(
+                            SectionGroup(
+                                title="Work",
+                                sections=(
+                                    SectionSelection(headings=("Brief",)),
+                                ),
+                            ),
+                        ),
                     ),
-                ),
+                    GuidelinePart(
+                        heading="Q2",
+                        groups=(
+                            SectionGroup(
+                                title="Work",
+                                sections=(
+                                    SectionSelection(headings=("Brief",)),
+                                ),
+                            ),
+                        ),
+                    ),
+                )
             ),
             "must not be nested",
         ),
         (
             "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n",
             GuidelineLayout(
-                part_headings=("Q1",),
-                groups=(
-                    SectionGroup(
-                        title="Work",
-                        sections=(SectionSelection(headings=("Brief",)),),
-                    ),
-                    SectionGroup(
-                        title="Examples",
-                        sections=(
-                            SectionSelection(
-                                headings=("Cases",), required=False
+                parts=(
+                    GuidelinePart(
+                        heading="Q1",
+                        groups=(
+                            SectionGroup(
+                                title="Work",
+                                sections=(
+                                    SectionSelection(headings=("Brief",)),
+                                ),
+                            ),
+                            SectionGroup(
+                                title="Examples",
+                                sections=(
+                                    SectionSelection(headings=("Cases",)),
+                                ),
                             ),
                         ),
                     ),
-                ),
-                required_groups=(
-                    GroupRequirement(
-                        part_headings=("Q1",), groups=("Examples",)
-                    ),
-                ),
+                )
             ),
-            "Required groups ['Examples'] missing from guide part 'Q1'",
-        ),
-        (
-            "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n",
-            GuidelineLayout(
-                part_headings=("Q1",),
-                groups=(
-                    SectionGroup(
-                        title="Work",
-                        sections=(SectionSelection(headings=("Brief",)),),
-                    ),
-                ),
-                required_groups=(
-                    GroupRequirement(
-                        part_headings=("Q1", "Q2"),
-                        groups=("Work",),
-                    ),
-                ),
-            ),
-            "Required guide parts are missing",
+            "Required selection ('Cases',) missing in 'Q1'",
         ),
         *[
             (
                 "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n",
                 GuidelineLayout(
-                    part_headings=("Q1",),
-                    groups=(
-                        SectionGroup(
-                            title="Work",
-                            sections=(SectionSelection(headings=("Brief",)),),
+                    parts=(
+                        GuidelinePart(
+                            heading="Q1",
+                            groups=(
+                                SectionGroup(
+                                    title="Work",
+                                    sections=(
+                                        SectionSelection(headings=("Brief",)),
+                                    ),
+                                ),
+                            ),
                         ),
                     ),
                     leading_sections=(SectionSelection(headings=(heading,)),),
@@ -685,27 +778,46 @@ def test_named_body_layout_with_shared_sections(
     )
 
     layout = GuidelineLayout(
-        part_headings=("Stage one", "Stage two"),
-        leading_sections=(SectionSelection(headings=("Shared brief",)),),
-        groups=(
-            SectionGroup(
-                title="Work", sections=(SectionSelection(headings=(".",)),)
+        parts=(
+            GuidelinePart(
+                heading="Stage one",
+                groups=(
+                    SectionGroup(
+                        title="Work",
+                        sections=(SectionSelection(headings=(".",)),),
+                    ),
+                    SectionGroup(
+                        title="Questions",
+                        sections=(
+                            SectionSelection(
+                                headings=("Discussion",), required=False
+                            ),
+                        ),
+                    ),
+                ),
             ),
-            SectionGroup(
-                title="Questions",
-                sections=(
-                    SectionSelection(headings=("Discussion",), required=False),
+            GuidelinePart(
+                heading="Stage two",
+                groups=(
+                    SectionGroup(
+                        title="Work",
+                        sections=(SectionSelection(headings=(".",)),),
+                    ),
+                    SectionGroup(
+                        title="Questions",
+                        sections=(
+                            SectionSelection(
+                                headings=("Discussion",), required=False
+                            ),
+                        ),
+                    ),
                 ),
             ),
         ),
+        leading_sections=(SectionSelection(headings=("Shared brief",)),),
         trailing_sections=(
             SectionSelection(headings=("Review",)),
             SectionSelection(headings=("Absent",), required=False),
-        ),
-        required_groups=(
-            GroupRequirement(
-                part_headings=("Stage one", "Stage two"), groups=("Work",)
-            ),
         ),
     )
     source = tmp_path / "source"

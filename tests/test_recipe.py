@@ -44,9 +44,7 @@ _GUIDE = textwrap.dedent(
     Explain your decisions.
     """
 )
-_RECIPE = r""".. interviewer-guideline:: guide.rst
-   :parts: Stage one
-           Stage two
+_RECIPE = """.. interviewer-guideline:: guide.rst
 
    .. include:: recipe.txt
 """
@@ -59,19 +57,25 @@ _DECLARATIONS = """\
 
 .. guideline-before:: Shared brief
 
-.. guideline-group:: Work
-   :required-for: Stage one
-                  Stage two
+.. guideline-part:: Stage one
 
-   .. include:: selections.txt
+   .. guideline-group:: Work
 
-.. guideline-group:: Questions
+      .. include:: selections.txt
 
-   .. guideline-select:: Discussion
-      :alternatives: Discussions
-                     Discussion topics
-      :optional:
-      :include-heading:
+   .. guideline-group:: Questions
+
+      .. guideline-select:: Discussion
+         :alternatives: Discussions
+                       Discussion topics
+         :optional:
+         :include-heading:
+
+.. guideline-part:: Stage two
+
+   .. guideline-group:: Next steps
+
+      .. guideline-select:: .
 
 .. guideline-after:: Review
 
@@ -163,6 +167,23 @@ def test_inline_recipe_tracks_native_includes(
                     selector=":scope > details > summary"
                 )
             ] == ["Shared brief", "Stage one", "Stage two", "Review"]
+            assert [
+                item.get_text()
+                for item in container.select(
+                    selector=":scope > details:nth-of-type(2) "
+                    "> details > summary"
+                )
+            ] == [
+                "Work",
+                "Updated questions" if bool(iteration) else "Questions",
+            ]
+            assert [
+                item.get_text()
+                for item in container.select(
+                    selector=":scope > details:nth-of-type(3) "
+                    "> details > summary"
+                )
+            ] == ["Next steps"]
             assert container.get_text().count("What would you improve?") == 1
             assert "Make the first version." in container.get_text()
             assert "Discuss the next version." in container.get_text()
@@ -213,139 +234,120 @@ def test_inline_recipe_tracks_native_includes(
     assert app.warning.getvalue() == ""
 
 
+def _recipe(*, declarations: str) -> str:
+    """Nest explicit declarations beneath the language composition."""
+    return ".. interviewer-guideline:: guide.rst\n\n" + textwrap.indent(
+        text=declarations, prefix="   "
+    )
+
+
+def _part(*, heading: str, selections: str) -> str:
+    """Build one part for grammar and source-validation failures."""
+    return (
+        f".. guideline-part:: {heading}\n\n   .. guideline-group:: Work\n\n"
+        + textwrap.indent(text=selections, prefix="      ")
+    )
+
+
 @pytest.mark.parametrize(
     argnames=("recipe", "message"),
     argvalues=[
         (
-            (
-                ".. interviewer-guideline:: guide.rst\n"
-                "\n"
-                "   .. guideline-group:: Work\n"
-                "\n"
-                "      .. guideline-select:: .\n"
-            ),
-            "requires :parts:",
-        ),
-        (
-            (
-                ".. interviewer-guideline:: guide.rst\n"
-                "   :parts: Stage one\n"
-                "           Missing\n"
-                "\n"
-                "   .. guideline-group:: Work\n"
-                "\n"
-                "      .. guideline-select:: .\n"
+            _recipe(
+                declarations=_part(
+                    heading="Missing", selections=".. guideline-select:: .\n"
+                )
             ),
             "Required guide parts are missing: ['Missing']",
         ),
         (
-            (
-                ".. interviewer-guideline:: guide.rst\n"
-                "   :parts: Stage one\n"
-                "           Stage one\n"
-                "\n"
-                "   .. guideline-group:: Work\n"
-                "\n"
-                "      .. guideline-select:: .\n"
+            _recipe(
+                declarations=_part(
+                    heading="Stage one", selections=".. guideline-select:: .\n"
+                )
+                + "\n"
+                + _part(
+                    heading="Stage one", selections=".. guideline-select:: .\n"
+                )
             ),
             "must not contain duplicates",
         ),
         (
-            (
-                ".. interviewer-guideline:: guide.rst\n"
-                "   :parts: Stage one\n"
-                "\n"
-                "   .. guideline-group:: Work\n"
-                "      :required-for: Stage one\n"
-                "                     Stage one\n"
-                "\n"
-                "      .. guideline-select:: .\n"
-            ),
-            "must not contain duplicates",
-        ),
-        (
-            (
-                ".. interviewer-guideline:: guide.rst\n"
-                "   :parts: Stage one\n"
-                "           Stage two\n"
-                "\n"
-                "   .. guideline-group:: Work\n"
-                "      :required-for: Absent\n"
-                "\n"
-                "      .. guideline-select:: .\n"
-            ),
-            "Required guide parts are missing: ['Absent']",
-        ),
-        (
-            (
-                ".. interviewer-guideline:: guide.rst\n"
-                "   :parts: Stage one\n"
-                "   :layout: existing\n"
-                "\n"
-            ),
-            "cannot be combined",
-        ),
-        (
-            (".. interviewer-guideline:: guide.rst\n   :parts: Stage one\n\n"),
+            _recipe(declarations=".. guideline-before:: Shared brief\n"),
             "nonempty names",
         ),
         (
-            (
-                ".. interviewer-guideline:: guide.rst\n"
-                "   :parts: Stage one\n"
-                "\n"
-                "   Unstructured prose.\n"
-            ),
+            _recipe(declarations="Unstructured prose.\n"),
             "only accepts recipe declarations",
         ),
         (
-            (
-                ".. interviewer-guideline:: guide.rst\n"
-                "   :parts: Stage one\n"
-                "\n"
-                "   .. guideline-group:: Work\n"
-                "\n"
-                "      Unstructured prose.\n"
+            _recipe(
+                declarations=(
+                    ".. guideline-part:: Stage one\n\n   Unstructured prose.\n"
+                )
+            ),
+            "only accepts guideline-group",
+        ),
+        (
+            _recipe(
+                declarations=(
+                    ".. guideline-part:: Stage one\n\n   .. "
+                    "guideline-group:: Work\n\n      Unstructured "
+                    "prose.\n"
+                )
             ),
             "only accepts guideline-select",
         ),
         (
-            (
-                ".. interviewer-guideline:: guide.rst\n"
-                "   :parts: Stage one\n"
-                "\n"
-                "   .. guideline-group:: Work\n"
-                "\n"
-                "      .. guideline-select:: Discussion\n"
-                "         :alternatives: Discussion\n"
+            _recipe(
+                declarations=_part(
+                    selections=(
+                        ".. guideline-select:: Discussion\n   "
+                        ":alternatives: Discussion\n"
+                    ),
+                    heading="Stage one",
+                )
             ),
             "must not contain duplicates",
         ),
         (
-            (
-                ".. interviewer-guideline:: guide.rst\n"
-                "   :parts: Stage one\n"
-                "\n"
-                "   .. guideline-introduction::\n"
-                "\n"
-                "      One.\n"
-                "\n"
-                "   .. guideline-introduction::\n"
-                "\n"
-                "      Two.\n"
+            _recipe(
+                declarations=(
+                    ".. guideline-introduction::\n\n   One.\n\n.. "
+                    "guideline-introduction::\n\n   Two.\n"
+                )
             ),
             "Only one guideline-introduction",
         ),
         (
-            (
-                ".. interviewer-guideline:: guide.rst\n"
-                "   :parts: Stage one\n"
-                "\n"
-                "   .. guideline-group:: Work\n"
-                "\n"
-                "      .. guideline-select:: Missing\n"
+            _recipe(
+                declarations=_part(
+                    selections=".. guideline-select:: Missing\n",
+                    heading="Stage one",
+                )
             ),
             "Required selection ('Missing',) missing",
+        ),
+        (
+            _recipe(
+                declarations=(
+                    ".. guideline-part:: Stage one\n\n   .. "
+                    "guideline-group:: First\n\n      .. "
+                    "guideline-select:: .\n\n   .. guideline-group:: "
+                    "Second\n\n      .. guideline-select:: .\n"
+                )
+            ),
+            "must not contain duplicates",
+        ),
+        (
+            ".. interviewer-guideline:: guide.rst\n   :layout: existing\n\n"
+            + textwrap.indent(
+                text=_part(
+                    heading="Stage one", selections=".. guideline-select:: .\n"
+                ),
+                prefix="   ",
+            ),
+            "cannot be combined",
         ),
         *[
             (
@@ -353,6 +355,7 @@ def test_inline_recipe_tracks_native_includes(
                 "only allowed inside its recipe parent",
             )
             for name, argument in (
+                ("guideline-part", "Stage one"),
                 ("guideline-group", "Work"),
                 ("guideline-select", "Brief"),
                 ("guideline-before", "Brief"),
@@ -389,7 +392,7 @@ def test_part_names_treat_regex_punctuation_literally(
     """
     source = tmp_path / "source"
     files = {
-        **_sources(recipe=_RECIPE.replace("Stage one", "Q[1-3]")),
+        **_sources(recipe=_RECIPE),
         "guide.rst": _GUIDE.replace("Stage one", "Q[1-3]")
         + "\nQ1\n--\n\nUnselected stage.\n",
         "recipe.txt": _DECLARATIONS.replace("Stage one", "Q[1-3]"),
@@ -409,32 +412,82 @@ def test_part_names_treat_regex_punctuation_literally(
 
 
 @pytest.mark.parametrize(
-    argnames=("root_option", "group_option"),
+    argnames="declarations",
     argvalues=[
-        ("   :part-pattern: Stage .*\n", ""),
-        ("   :minimum-parts: 2\n", ""),
-        ("", "      :required-for-pattern: Stage .*\n"),
-        ("", "      :minimum-parts: 2\n"),
+        ":parts: Stage one\n\n"
+        + _part(heading="Stage one", selections=".. guideline-select:: .\n"),
+        ":part-pattern: Stage .*\n\n"
+        + _part(heading="Stage one", selections=".. guideline-select:: .\n"),
+        ":minimum-parts: 2\n\n"
+        + _part(heading="Stage one", selections=".. guideline-select:: .\n"),
+        (
+            ".. guideline-part:: Stage one\n\n   .. "
+            "guideline-group:: Work\n      :required-for: "
+            "Stage one\n\n      .. guideline-select:: .\n"
+        ),
+        (
+            ".. guideline-part:: Stage one\n\n   .. "
+            "guideline-group:: Work\n      "
+            ":required-for-pattern: Stage .*\n\n      .. "
+            "guideline-select:: .\n"
+        ),
     ],
 )
 def test_removed_selector_options_are_rejected(
     *,
     make_app: Callable[..., SphinxTestApp],
     tmp_path: Path,
-    root_option: str,
-    group_option: str,
+    declarations: str,
 ) -> None:
-    """Obsolete selector options cannot silently weaken required content
-    checks.
+    """Loop and conditional options cannot weaken explicit part
+    selection.
     """
-    recipe = (
-        ".. interviewer-guideline:: guide.rst\n"
-        "   :parts: Stage one\n" + root_option + "\n"
-        "   .. guideline-group:: Work\n" + group_option + "\n"
-        "      .. guideline-select:: .\n"
-    )
     source = tmp_path / "source"
-    write_sources(source=source, files=_sources(recipe=recipe))
+    write_sources(
+        source=source,
+        files=_sources(
+            recipe=".. interviewer-guideline:: guide.rst\n"
+            + ("\n" if declarations.startswith("..") else "")
+            + textwrap.indent(text=declarations, prefix="   ")
+        ),
+    )
     app = make_app(srcdir=source, confoverrides=_configuration())
     app.build()
-    assert "unknown option" in app.warning.getvalue()
+    expected = (
+        "single-line names"
+        if "required-for" in declarations
+        else "unknown option"
+    )
+    assert expected in app.warning.getvalue()
+
+
+def test_explicit_parts_follow_declaration_order(
+    *, make_app: Callable[..., SphinxTestApp], tmp_path: Path
+) -> None:
+    """The RST controls display order independently of source order."""
+    source = tmp_path / "source"
+    recipe = _recipe(
+        declarations=_part(
+            heading="Stage two", selections=".. guideline-select:: .\n"
+        )
+        + "\n"
+        + _part(heading="Stage one", selections=".. guideline-select:: .\n")
+    )
+    write_sources(source=source, files=_sources(recipe=recipe))
+    app = make_app(
+        srcdir=source,
+        exception_on_warning=True,
+        confoverrides=_configuration(),
+    )
+    app.build()
+    soup = BeautifulSoup(
+        markup=(
+            Path(app.outdir) / "view-interviewer-guideline.html"
+        ).read_text(),
+        features="html.parser",
+    )
+    for container in soup.select(selector=".hr-interviewer-guideline"):
+        assert [
+            item.get_text()
+            for item in container.select(selector=":scope > details > summary")
+        ] == ["Stage two", "Stage one"]

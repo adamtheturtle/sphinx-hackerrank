@@ -46,8 +46,6 @@ Declare the composition in the Interviewer Guideline RST:
 .. code-block:: rst
 
    .. interviewer-guideline:: guide.rst
-      :parts: Stage 1
-              Stage 2
 
       .. guideline-introduction::
 
@@ -55,17 +53,24 @@ Declare the composition in the Interviewer Guideline RST:
 
       .. guideline-before:: Shared brief
 
-      .. guideline-group:: Work
+      .. guideline-part:: Stage 1
 
-         .. guideline-select:: Brief
-            :alternatives: Briefs
+         .. guideline-group:: Work
 
-      .. guideline-group:: Examples
-         :required-for: Stage 1
+            .. guideline-select:: Brief
+               :alternatives: Briefs
 
-         .. guideline-select:: Cases
-            :optional:
-            :include-heading:
+         .. guideline-group:: Examples
+
+            .. guideline-select:: Cases
+               :include-heading:
+
+      .. guideline-part:: Stage 2
+
+         .. guideline-group:: Work
+
+            .. guideline-select:: Brief
+               :alternatives: Briefs
 
       .. guideline-after:: Review
 
@@ -74,9 +79,11 @@ The package has no built-in section names, grouping rules, or introductory wordi
 Each guideline's RST owns its selections, presentation, and completeness rules.
 The full guide owns the selected content, and the adjacent YAML mapping owns question identities and languages.
 
-``:parts:`` lists exact source headings, one per line.
-Every listed part must exist once, independently of its selected contents.
-Parts retain the full guide's order, and punctuation in headings is literal.
+Each ``guideline-part`` names one exact source heading and contains its own groups.
+Every declared part must exist once, independently of its selected contents.
+Parts appear in declaration order, and punctuation in headings is literal.
+Repeat group declarations where parts share a layout.
+For example, Stage 1 above requires cases while Stage 2 has no cases group.
 Each ``guideline-group`` combines its selections under the supplied display title.
 Groups and selections appear in declaration order.
 A ``guideline-select`` is required by default and must retain content after filtering.
@@ -86,9 +93,6 @@ Exactly one spelling must match.
 Use ``guideline-select:: .`` for a part whose instructions are its own body.
 Separately selected descendants appear once in their own group.
 
-A group's ``:required-for:`` lists exact part headings which must contain nonempty content, even when its selections are optional elsewhere.
-Every heading in that list must identify a selected part.
-For example, coding stages can require examples while discussion stages omit them.
 ``guideline-before`` and ``guideline-after`` select shared content before or after all parts.
 They accept the same options as ``guideline-select`` and cannot overlap a part.
 
@@ -104,8 +108,11 @@ Optional empty groups are omitted after admonitions are removed.
 Missing mappings, incomplete parts, missing required content, and ambiguous selected headings fail the build.
 Changing the guide, mapping, recipe, or an included recipe file refreshes the view.
 
-Programmatic consumers can still configure ``GuidelineLayout``, ``SectionGroup``, ``SectionSelection``, and ``GroupRequirement`` from ``sphinx_hackerrank.layout``.
-Their ``part_headings`` field lists exact part names.
+Programmatic consumers can still configure ``GuidelineLayout``, ``GuidelinePart``, ``SectionGroup``, and ``SectionSelection`` from ``sphinx_hackerrank.layout``.
+The layout's ``parts`` field contains independently declared ``GuidelinePart`` objects.
+Each part has a ``heading`` and its own ``groups``.
+This replaces shared groups, ``part_headings``, and ``GroupRequirement``.
+RST recipes use explicit ``guideline-part`` blocks instead of ``:parts:`` and ``:required-for:``.
 ``hackerrank_guideline_layout`` supplies a default Python layout, and ``hackerrank_guideline_layouts`` maps names to layouts selected with ``:layout:``.
 An inline recipe cannot be combined with ``:layout:``.
 
