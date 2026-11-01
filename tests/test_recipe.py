@@ -117,11 +117,15 @@ def _configuration() -> dict[str, object]:
 @pytest.mark.parametrize(
     argnames="buildername", argvalues=["html", "hackerrank"]
 )
+@pytest.mark.parametrize(
+    argnames="exclude_admonitions", argvalues=[False, True]
+)
 def test_inline_recipe_tracks_native_includes(
     *,
     make_app: Callable[..., SphinxTestApp],
     tmp_path: Path,
     buildername: str,
+    exclude_admonitions: bool,
 ) -> None:
     """Shared instructions, body selections, and recipe changes refresh
     both languages.
@@ -140,7 +144,9 @@ def test_inline_recipe_tracks_native_includes(
             .replace("   view", "   topics/view"),
             "topics/recipe.txt": _DECLARATIONS,
             "topics/selections.txt": ".. guideline-select:: .\n",
-            "topics/intro.txt": "Interviewer only.\n",
+            "topics/intro.txt": (
+                "Interviewer only.\n\n.. note:: Private introduction note.\n"
+            ),
         }
     )
     write_sources(source=source, files=files)
@@ -148,7 +154,10 @@ def test_inline_recipe_tracks_native_includes(
         srcdir=source,
         buildername=buildername,
         exception_on_warning=True,
-        confoverrides=_configuration(),
+        confoverrides={
+            **_configuration(),
+            "hackerrank_exclude_admonitions": exclude_admonitions,
+        },
     )
     for iteration in range(2):
         app.build()
@@ -161,6 +170,9 @@ def test_inline_recipe_tracks_native_includes(
         assert len(containers) == len(languages)
         for container, language in zip(containers, languages, strict=True):
             assert "Widgets: " + language in container.get_text()
+            assert (
+                "Private introduction note." in container.get_text()
+            ) is not exclude_admonitions
             assert [
                 item.get_text()
                 for item in container.select(
@@ -215,7 +227,8 @@ def test_inline_recipe_tracks_native_includes(
             )
         )
         _ = (source / "topics/intro.txt").write_text(
-            data="Updated interview advice.\n"
+            data="Updated interview advice.\n\n"
+            ".. note:: Private introduction note.\n"
         )
     dependencies = {
         str(object=path)

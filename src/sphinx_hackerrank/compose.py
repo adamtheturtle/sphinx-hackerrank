@@ -47,6 +47,17 @@ def _disclosure(*, title: str, content: list[nodes.Node]) -> CollapseNode:
     return disclosure
 
 
+def _discard_admonitions(*, container: nodes.container) -> None:
+    """Filter source and introductory content before it is rendered."""
+    for admonition in list(
+        container.findall(
+            condition=lambda node: isinstance(node, nodes.Admonition)
+        )
+    ):
+        assert admonition.parent is not None
+        _ = admonition.parent.remove(item=admonition)
+
+
 def _scope_title(*, scope: nodes.document | nodes.section) -> str:
     """Describe a source scope in a validation error."""
     return next(scope.findall(condition=nodes.title)).astext()
@@ -137,13 +148,7 @@ def _category_content(
         assert message.parent is not None
         _ = message.parent.remove(item=message)
     if exclude_admonitions:
-        for admonition in list(
-            container.findall(
-                condition=lambda node: isinstance(node, nodes.Admonition)
-            )
-        ):
-            assert admonition.parent is not None
-            _ = admonition.parent.remove(item=admonition)
+        _discard_admonitions(container=container)
     if not any(
         bool(child.astext().strip())
         for child in container.children
@@ -547,4 +552,6 @@ class InterviewerGuideline(SphinxDirective):
             input_offset=0,
             node=container,
         )
+        if self.config.hackerrank_exclude_admonitions:
+            _discard_admonitions(container=container)
         return container.children
