@@ -9,6 +9,10 @@ Build portable Interviewer Guidelines from maintained Sphinx guides.
 * Export one standalone HTML fragment per question and language, plus a local preview index.
 * Build and preview without a HackerRank login or API token.
 
+Section loading and selection use `sphinx-section-include <https://github.com/adamtheturtle/sphinx-section-include>`_.
+That extension also supplies the general-purpose ``include-section`` directive.
+HackerRank composition, language filtering, and HTML export live here.
+
 .. contents::
 
 Installation

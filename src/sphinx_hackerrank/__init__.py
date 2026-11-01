@@ -32,6 +32,7 @@ def setup(app: Sphinx) -> dict[str, object]:
     """Register the builder, directive, and project-independent
     settings.
     """
+    app.setup_extension(extname="sphinx_section_include")
     app.setup_extension(extname="sphinx_jinja2")
     app.setup_extension(extname="sphinx_toolbox.collapse")
     _ = app.connect(event="config-inited", callback=_add_static_path)
