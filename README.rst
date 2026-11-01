@@ -104,12 +104,8 @@ Optional empty groups are omitted after admonitions are removed.
 Missing mappings, incomplete parts, missing required content, and ambiguous selected headings fail the build.
 Changing the guide, mapping, recipe, or an included recipe file refreshes the view.
 
-Pattern selectors use ``:part-pattern:`` and ``:required-for-pattern:`` options.
-``:minimum-parts:`` is only accepted with a pattern selector.
-Recipes using regex values in ``:parts:`` or ``:required-for:`` must migrate to those pattern options or list their exact headings.
-
 Programmatic consumers can still configure ``GuidelineLayout``, ``SectionGroup``, ``SectionSelection``, and ``GroupRequirement`` from ``sphinx_hackerrank.layout``.
-Their ``part_headings`` field selects exact names, while ``part_pattern`` retains pattern matching.
+Their ``part_headings`` field lists exact part names.
 ``hackerrank_guideline_layout`` supplies a default Python layout, and ``hackerrank_guideline_layouts`` maps names to layouts selected with ``:layout:``.
 An inline recipe cannot be combined with ``:layout:``.
 

@@ -64,36 +64,12 @@ def _text_option(*, directive: SphinxDirective, name: str) -> str:
     return value
 
 
-def _minimum(*, directive: SphinxDirective) -> int:
-    """Read an optional positive match count."""
-    value = directive.options.get("minimum-parts", 1)
-    assert isinstance(value, int)
-    return value
-
-
-def _part_options(
-    *, directive: SphinxDirective, names_option: str, pattern_option: str
-) -> tuple[str | None, tuple[str, ...], int]:
-    """Read literal part names without interpreting punctuation as
-    syntax.
-    """
-    if names_option in directive.options:
-        if (
-            pattern_option in directive.options
-            or "minimum-parts" in directive.options
-        ):
-            message = (
-                "Exact part lists cannot be combined "
-                "with patterns or minimum-parts"
-            )
-            raise ValueError(message)
-        names = _text_option(directive=directive, name=names_option)
-        return None, tuple(line.strip() for line in names.splitlines()), 1
-    return (
-        _text_option(directive=directive, name=pattern_option),
-        (),
-        _minimum(directive=directive),
-    )
+def _headings_option(
+    *, directive: SphinxDirective, name: str
+) -> tuple[str, ...]:
+    """Read exact heading names, one per option line."""
+    value = _text_option(directive=directive, name=name)
+    return tuple(line.strip() for line in value.splitlines())
 
 
 def _selection(*, directive: SphinxDirective) -> SectionSelection:
@@ -196,8 +172,6 @@ class GuidelineGroup(SphinxDirective):
     # Docutils defines option converter return values as Any.
     option_spec: ClassVar[dict[str, Callable[[str], Any]] | None] = {  # pyrefly: ignore[explicit-any]
         "required-for": directives.unchanged_required,
-        "required-for-pattern": directives.unchanged_required,
-        "minimum-parts": directives.positive_int,
     }
 
     @override
@@ -219,33 +193,19 @@ class GuidelineGroup(SphinxDirective):
                     "guideline-select declarations"
                 )
             selections.append(child.selection)
-        has_requirement = any(
-            name in self.options
-            for name in ("required-for", "required-for-pattern")
-        )
-        if "minimum-parts" in self.options and not has_requirement:
-            raise self.error(
-                message="Group minimum-parts requires "
-                "required-for or required-for-pattern"
-            )
         try:
             group = SectionGroup(
                 title=self.arguments[0], sections=tuple(selections)
             )
             declarations: list[nodes.Node] = [_Declaration(value=group)]
-            if has_requirement:
-                pattern, headings, minimum = _part_options(
-                    directive=self,
-                    names_option="required-for",
-                    pattern_option="required-for-pattern",
-                )
+            if "required-for" in self.options:
                 declarations.append(
                     _Declaration(
                         value=GroupRequirement(
-                            part_pattern=pattern,
-                            part_headings=headings,
+                            part_headings=_headings_option(
+                                directive=self, name="required-for"
+                            ),
                             groups=(group.title,),
-                            minimum_parts=minimum,
                         )
                     )
                 )
@@ -258,12 +218,8 @@ def parse_recipe(
     *, directive: SphinxDirective
 ) -> tuple[GuidelineLayout, StringList]:
     """Read an RST recipe once, before rendering its mapped languages."""
-    if not any(
-        name in directive.options for name in ("parts", "part-pattern")
-    ):
-        message = (
-            "An inline guideline recipe requires :parts: or :part-pattern:"
-        )
+    if "parts" not in directive.options:
+        message = "An inline guideline recipe requires :parts:"
         raise ValueError(message)
     recipe = _Recipe()
     _ = directive.state.nested_parse(
@@ -294,15 +250,8 @@ def parse_recipe(
         message = "Only one guideline-introduction is allowed"
         raise ValueError(message)
     introduction = introductions[0] if bool(introductions) else StringList()
-    pattern, headings, minimum = _part_options(
-        directive=directive,
-        names_option="parts",
-        pattern_option="part-pattern",
-    )
     layout = GuidelineLayout(
-        part_pattern=pattern,
-        part_headings=headings,
-        minimum_parts=minimum,
+        part_headings=_headings_option(directive=directive, name="parts"),
         groups=tuple(groups),
         leading_sections=tuple(leading),
         trailing_sections=tuple(trailing),

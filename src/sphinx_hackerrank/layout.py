@@ -1,6 +1,5 @@
 """Caller-defined selection, presentation, and completeness contracts."""
 
-import re
 from dataclasses import dataclass
 
 
@@ -14,33 +13,6 @@ def _names(*, values: tuple[str, ...], description: str) -> None:
     if len(values) != len(set(values)):
         message = f"{description} must not contain duplicates"
         raise ValueError(message)
-
-
-def _pattern(*, value: str) -> None:
-    """Validate caller patterns without assigning meaning to their
-    words.
-    """
-    if not bool(value):
-        message = "A part pattern must not be empty"
-        raise ValueError(message)
-    try:
-        _ = re.compile(pattern=value)
-    except re.error as error:
-        message = f"Invalid part pattern {value!r}: {error}"
-        raise ValueError(message) from error
-
-
-def _part_selector(*, pattern: str | None, headings: tuple[str, ...]) -> None:
-    """Require either literal headings or an explicitly supplied
-    pattern.
-    """
-    if pattern is None:
-        _names(values=headings, description="Part headings")
-    else:
-        if bool(headings):
-            message = "Use part_headings or part_pattern, not both"
-            raise ValueError(message)
-        _pattern(value=pattern)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -83,17 +55,12 @@ class GroupRequirement:
     """Require rendered groups in explicitly selected parts."""
 
     groups: tuple[str, ...]
-    part_pattern: str | None = None
-    part_headings: tuple[str, ...] = ()
-    minimum_parts: int = 1
+    part_headings: tuple[str, ...]
 
     def __post_init__(self) -> None:
         """Reject requirements which cannot describe a real part set."""
-        _part_selector(pattern=self.part_pattern, headings=self.part_headings)
+        _names(values=self.part_headings, description="Part headings")
         _names(values=self.groups, description="Required groups")
-        if self.minimum_parts < 1:
-            message = "A group requirement needs a positive minimum_parts"
-            raise ValueError(message)
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -103,9 +70,7 @@ class GuidelineLayout:
     """
 
     groups: tuple[SectionGroup, ...]
-    part_pattern: str | None = None
-    part_headings: tuple[str, ...] = ()
-    minimum_parts: int = 1
+    part_headings: tuple[str, ...]
     leading_sections: tuple[SectionSelection, ...] = ()
     trailing_sections: tuple[SectionSelection, ...] = ()
     required_groups: tuple[GroupRequirement, ...] = ()
@@ -115,10 +80,7 @@ class GuidelineLayout:
         """Validate the recipe before optional selections could hide a
         typo.
         """
-        _part_selector(pattern=self.part_pattern, headings=self.part_headings)
-        if self.minimum_parts < 1:
-            message = "A layout needs a positive minimum_parts"
-            raise ValueError(message)
+        _names(values=self.part_headings, description="Part headings")
         _names(
             values=tuple(group.title for group in self.groups),
             description="Group titles",
