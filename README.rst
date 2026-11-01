@@ -23,11 +23,7 @@ Install from PyPI:
 
    pip install sphinx-hackerrank
 
-Or install a wheel from the GitHub release assets:
-
-.. code-block:: console
-
-   pip install https://github.com/adamtheturtle/sphinx-hackerrank/releases/download/2026.10.30.2/sphinx_hackerrank-2026.10.30.2-py3-none-any.whl
+Release wheels are also available from `GitHub releases <https://github.com/adamtheturtle/sphinx-hackerrank/releases/latest>`_.
 
 Enable the extension in ``conf.py``:
 
