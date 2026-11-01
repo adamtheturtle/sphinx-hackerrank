@@ -7,7 +7,8 @@ from sphinx.application import Sphinx
 from sphinx.config import Config
 
 from sphinx_hackerrank.builder import HackerRankBuilder
-from sphinx_hackerrank.compose import InterviewerGuideline
+from sphinx_hackerrank.compose import InterviewerGuideline, compose_guide
+from sphinx_hackerrank.exports import GuidelineExport
 from sphinx_hackerrank.recipe import (
     GuidelineAfter,
     GuidelineBefore,
@@ -16,6 +17,8 @@ from sphinx_hackerrank.recipe import (
     GuidelinePartDirective,
     GuidelineSelect,
 )
+
+__all__ = ["GuidelineExport", "compose_guide"]
 
 __version__ = version(distribution_name="sphinx-hackerrank")
 
@@ -39,19 +42,10 @@ def setup(app: Sphinx) -> dict[str, object]:
     app.add_css_file(filename="interviewer_guideline.css")
     app.add_js_file(filename="interviewer_guideline.js")
     app.add_config_value(
-        name="hackerrank_manifest_pattern",
-        default="**/*-interviewer-guideline.yml",
-        rebuild="env",
-        types=str,
-    )
-    app.add_config_value(
-        name="hackerrank_languages", default={}, rebuild="env", types=dict
-    )
-    app.add_config_value(
-        name="hackerrank_jinja_context",
-        default="languages",
-        rebuild="env",
-        types=str,
+        name="hackerrank_exports",
+        default=[],
+        rebuild="html",
+        types=list,
     )
     app.add_config_value(
         name="hackerrank_source_url",

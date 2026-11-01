@@ -11,6 +11,7 @@ from bs4 import BeautifulSoup
 from docutils import nodes
 from sphinx.testing.util import SphinxTestApp
 
+from sphinx_hackerrank import GuidelineExport
 from tests.builds import write_sources
 
 _GUIDE = textwrap.dedent(
@@ -85,9 +86,7 @@ _DECLARATIONS = """\
 
 
 def _sources(*, recipe: str) -> dict[str, str]:
-    """Keep render-only question mappings independent of any API
-    client.
-    """
+    """Keep the maintained guide and its explicit composition together."""
     return {
         "index.rst": (
             "Index\n=====\n\n.. toctree::\n\n"
@@ -95,22 +94,21 @@ def _sources(*, recipe: str) -> dict[str, str]:
         ),
         "guide.rst": _GUIDE,
         "view-interviewer-guideline.rst": recipe,
-        "view-interviewer-guideline.yml": (
-            "version: 1\nquestions:\n"
-            "  - language: python\n    name: Widgets - Python\n"
-            "  - language: javascript\n    name: Widgets - JavaScript\n"
-        ),
     }
 
 
 def _configuration() -> dict[str, object]:
-    """Configure site-wide language settings without layout policy."""
+    """Configure one prepared guide and an explicit export."""
     return {
         "extensions": ["sphinx_hackerrank"],
-        "hackerrank_languages": {
-            "python": {"name": "Python"},
-            "javascript": {"name": "JavaScript"},
-        },
+        "hackerrank_exports": [
+            GuidelineExport(
+                docname="topics/view-interviewer-guideline",
+                selector=".hr-interviewer-guideline",
+                output_path="interviewer-guidelines/topics/view/guide.html",
+                name="Widgets",
+            )
+        ],
     }
 
 
@@ -128,7 +126,7 @@ def test_inline_recipe_tracks_native_includes(
     exclude_admonitions: bool,
 ) -> None:
     """Shared instructions, body selections, and recipe changes refresh
-    both languages.
+    the prepared guide.
     """
     source = tmp_path / "source"
     originals = _sources(recipe=_RECIPE)
@@ -166,10 +164,9 @@ def test_inline_recipe_tracks_native_includes(
         ).read_text()
         soup = BeautifulSoup(markup=html, features="html.parser")
         containers = soup.select(selector=".hr-interviewer-guideline")
-        languages = ("Python", "JavaScript")
-        assert len(containers) == len(languages)
-        for container, language in zip(containers, languages, strict=True):
-            assert "Widgets: " + language in container.get_text()
+        assert len(containers) == 1
+        for container in containers:
+            assert "Widgets" in container.get_text()
             assert (
                 "Private introduction note." in container.get_text()
             ) is not exclude_admonitions
@@ -215,7 +212,7 @@ def test_inline_recipe_tracks_native_includes(
             for node in tree.findall(condition=nodes.paragraph)
             if "full guide" in node.astext()
         ]
-        assert len(introductions) == len(languages)
+        assert len(introductions) == 1
         for introduction in introductions:
             assert introduction.source is not None
             assert Path(introduction.source).name == "recipe.txt"
@@ -237,18 +234,18 @@ def test_inline_recipe_tracks_native_includes(
     for name in ("recipe.txt", "selections.txt", "intro.txt"):
         assert any(path.endswith(name) for path in dependencies)
     if buildername == "hackerrank":
-        for language in ("python", "javascript"):
+        for output in ("guide.html",):
             fragment = (
                 Path(app.outdir)
                 / "interviewer-guidelines/topics/view"
-                / f"{language}.html"
+                / output
             )
             assert "Updated interview advice." in fragment.read_text()
     assert app.warning.getvalue() == ""
 
 
 def _recipe(*, declarations: str) -> str:
-    """Nest explicit declarations beneath the language composition."""
+    """Nest explicit declarations beneath the guide composition."""
     return ".. interviewer-guideline:: guide.rst\n\n" + textwrap.indent(
         text=declarations, prefix="   "
     )

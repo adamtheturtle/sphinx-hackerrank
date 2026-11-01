@@ -99,7 +99,7 @@ class GuidelineIntroduction(SphinxDirective):
 
     @override
     def run(self) -> list[nodes.Node]:
-        """Keep introduction markup for the mapped language containers."""
+        """Keep introduction markup for the composition container."""
         _require_parent(directive=self, parent=_Recipe)
         self.assert_has_content()
         return [_Declaration(value=StringList(initlist=self.content))]
@@ -225,7 +225,7 @@ class GuidelinePartDirective(SphinxDirective):
 def parse_recipe(
     *, directive: SphinxDirective
 ) -> tuple[GuidelineLayout, StringList]:
-    """Read explicit RST parts before rendering mapped languages."""
+    """Read explicit RST parts before rendering a prepared guide."""
     recipe = _Recipe()
     _ = directive.state.nested_parse(
         block=directive.content,

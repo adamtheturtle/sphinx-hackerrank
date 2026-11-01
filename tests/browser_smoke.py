@@ -7,6 +7,8 @@ from tempfile import TemporaryDirectory
 from playwright.sync_api import Page, expect, sync_playwright
 from sphinx.application import Sphinx
 
+from sphinx_hackerrank import GuidelineExport
+
 
 def _check_page(*, page: Page, path: Path) -> None:
     """Copy every code block, checking exact clipboard contents."""
@@ -68,7 +70,7 @@ def _build_fixture(*, directory: Path, code: str) -> Path:
     (source / "conf.py").touch()
     _ = (source / "code.txt").write_text(data=code, encoding="utf-8")
     (source / "empty.txt").touch()
-    classes = "hr-interviewer-guideline interviewer-guideline-python"
+    classes = "hr-interviewer-guideline selected-guide"
     _ = (source / "index.rst").write_text(
         data=textwrap.dedent(
             text=f"""\
@@ -86,17 +88,6 @@ def _build_fixture(*, directory: Path, code: str) -> Path:
         ),
         encoding="utf-8",
     )
-    _ = (source / "index.yml").write_text(
-        data=textwrap.dedent(
-            text="""\
-            version: 1
-            questions:
-              - language: python
-                name: Clipboard examples
-            """
-        ),
-        encoding="utf-8",
-    )
     fixture_output = directory / "output"
     app = Sphinx(
         srcdir=source,
@@ -106,14 +97,21 @@ def _build_fixture(*, directory: Path, code: str) -> Path:
         buildername="hackerrank",
         confoverrides={
             "extensions": ["sphinx_hackerrank"],
-            "hackerrank_manifest_pattern": "index.yml",
+            "hackerrank_exports": [
+                GuidelineExport(
+                    docname="index",
+                    selector=".selected-guide",
+                    output_path="interviewer-guidelines/index/guide.html",
+                    name="Example",
+                )
+            ],
         },
         warningiserror=True,
     )
     app.build()
     assert app.statuscode == 0
     fragment = (
-        fixture_output / "interviewer-guidelines/index/python.html"
+        fixture_output / "interviewer-guidelines/index/guide.html"
     ).read_text(encoding="utf-8")
     fixture = directory / "guidelines.html"
     _ = fixture.write_text(data=fragment + fragment, encoding="utf-8")
@@ -136,7 +134,7 @@ def main() -> None:
         )
         page = context.new_page()
         for path in (
-            output / "interviewer-guidelines/topics/widgets/python.html",
+            output / "interviewer-guidelines/topics/widgets/guide.html",
             output / "topics/widgets-interviewer-guideline.html",
             fixture,
         ):

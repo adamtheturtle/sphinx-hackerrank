@@ -1,6 +1,4 @@
-"""Automatic layouts follow native sections and the consumer's
-mappings.
-"""
+"""Explicit layouts follow native sections and the consumer's recipe."""
 
 import textwrap
 from collections.abc import Callable
@@ -10,16 +8,9 @@ import pytest
 from bs4 import BeautifulSoup
 from sphinx.testing.util import SphinxTestApp
 
+from sphinx_hackerrank import GuidelineExport
 from tests.builds import write_sources
 
-_MAPPING = """\
-version: 1
-questions:
-  - language: python
-    name: Widgets - Python
-  - language: javascript
-    name: Widgets - JavaScript
-"""
 _GUIDE = """\
 Widgets
 =======
@@ -86,21 +77,18 @@ How would you handle an empty widget name?
 
 
 def _configuration() -> dict[str, object]:
-    """Use site-wide language settings without a Python layout."""
+    """Use a caller-selected template context and explicit export."""
     return {
         "extensions": ["sphinx_hackerrank"],
-        "hackerrank_jinja_context": "snippets",
-        "jinja2_contexts": {"snippets": {"example": "unselected language"}},
-        "hackerrank_languages": {
-            "python": {
-                "name": "Python",
-                "context": {"example": "Python prompt"},
-            },
-            "javascript": {
-                "name": "JavaScript",
-                "context": {"example": "JavaScript prompt"},
-            },
-        },
+        "jinja2_contexts": {"snippets": {"example": "Configured prompt"}},
+        "hackerrank_exports": [
+            GuidelineExport(
+                docname="topics/derived-interviewer-guideline",
+                selector=".hr-interviewer-guideline",
+                output_path="interviewer-guidelines/topics/derived/guide.html",
+                name="Widgets",
+            )
+        ],
     }
 
 
@@ -152,10 +140,8 @@ def _default_recipe(*, parts: tuple[str, ...]) -> str:
     )
 
 
-def _files(*, guide: str, mapping: str, recipe: str) -> dict[str, str]:
-    """Keep the source guide, composed view, and mapping in a nested
-    folder.
-    """
+def _files(*, guide: str, recipe: str) -> dict[str, str]:
+    """Keep the maintained guide and composed view in a nested folder."""
     files = {
         "index.rst": (
             "Index\n=====\n\n.. toctree::\n\n"
@@ -163,7 +149,6 @@ def _files(*, guide: str, mapping: str, recipe: str) -> dict[str, str]:
         ),
         "topics/guide.rst": guide,
         "topics/derived-interviewer-guideline.rst": recipe,
-        "topics/derived-interviewer-guideline.yml": mapping,
     }
     if "details.rst" in guide:
         files["details.rst"] = ".. tip:: Prompt admonition.\n"
@@ -182,7 +167,7 @@ def _files(*, guide: str, mapping: str, recipe: str) -> dict[str, str]:
 @pytest.mark.parametrize(
     argnames="source_url", argvalues=[None, "https://example.com/source/"]
 )
-def test_derived_layout_tracks_guide_and_mapping(
+def test_derived_layout_tracks_guide(
     *,
     make_app: Callable[..., SphinxTestApp],
     tmp_path: Path,
@@ -209,7 +194,6 @@ def test_derived_layout_tracks_guide_and_mapping(
         source=source,
         files=_files(
             guide=guide,
-            mapping=_MAPPING,
             recipe=_default_recipe(parts=("First part", "Second part")),
         ),
     )
@@ -231,11 +215,9 @@ def test_derived_layout_tracks_guide_and_mapping(
     assert heading is not None
     assert "Widgets: HackerRank Interviewer Guidelines" in heading.get_text()
     containers = soup.select(selector=".hr-interviewer-guideline")
-    languages = ["Python", "JavaScript"]
-    assert len(containers) == len(languages)
-    for container, language in zip(containers, languages, strict=True):
-        assert language + " prompt" in container.get_text()
-        assert "unselected language" not in container.get_text()
+    assert len(containers) == 1
+    for container in containers:
+        assert "Configured prompt" in container.get_text()
         assert (
             container.get_text().count(
                 "How would you handle an empty widget name?"
@@ -266,18 +248,12 @@ def test_derived_layout_tracks_guide_and_mapping(
             else source_url + "topics/guide.rst"
         )
     assert app.config.jinja2_contexts["snippets"] == {
-        "example": "unselected language"
+        "example": "Configured prompt"
     }
-    # Change the maintained guide and remove a mapped language.
+    # Changing only the maintained guide refreshes the composed output.
     guide_path = source / "topics/guide.rst"
     _ = guide_path.write_text(
         data=guide.replace("Discuss another requirement.", "New requirement.")
-    )
-    mapping_path = source / "topics/derived-interviewer-guideline.yml"
-    _ = mapping_path.write_text(
-        data=_MAPPING.replace(
-            "  - language: javascript\n    name: Widgets - JavaScript\n", ""
-        )
     )
     app.build()
     refreshed = BeautifulSoup(
@@ -288,19 +264,17 @@ def test_derived_layout_tracks_guide_and_mapping(
     if buildername == "hackerrank":
         fragment = (
             Path(app.outdir)
-            / "interviewer-guidelines/topics/derived/python.html"
+            / "interviewer-guidelines/topics/derived/guide.html"
         )
         assert "New requirement." in fragment.read_text()
 
 
 @pytest.mark.parametrize(
-    argnames=("guide", "mapping", "message"),
+    argnames=("guide", "message"),
     argvalues=[
-        ("Widgets\n=======\n", "", "requires an adjacent language mapping"),
-        ("No headings here.\n", _MAPPING, "requires a guide title"),
+        ("No headings here.\n", "requires a guide title"),
         (
             "Widgets\n=======\n\nNo parts.\n",
-            _MAPPING,
             "Required guide parts are missing",
         ),
         (
@@ -308,7 +282,6 @@ def test_derived_layout_tracks_guide_and_mapping(
                 "Widgets\n=======\n\nQ1\n--\n\nPrompt\n~~~~~~\n\nHi.\n\nFAQ\n"
                 "~~~\n\nOne.\n\nFAQ\n~~~\n\nTwo.\n"
             ),
-            _MAPPING,
             "Ambiguous selection",
         ),
         (
@@ -317,7 +290,6 @@ def test_derived_layout_tracks_guide_and_mapping(
                 "uation\n----------\n\nOne.\n\nEvaluation\n----------\n\n"
                 "Two.\n"
             ),
-            _MAPPING,
             "Ambiguous selection",
         ),
     ],
@@ -327,17 +299,12 @@ def test_derived_layout_rejects_incomplete_or_ambiguous_sources(
     make_app: Callable[..., SphinxTestApp],
     tmp_path: Path,
     guide: str,
-    mapping: str,
     message: str,
 ) -> None:
     """Invalid inputs report errors instead of silently dropping a
     part.
     """
-    files = _files(
-        guide=guide, mapping=mapping, recipe=_default_recipe(parts=("Q1",))
-    )
-    if not bool(mapping):
-        del files["topics/derived-interviewer-guideline.yml"]
+    files = _files(guide=guide, recipe=_default_recipe(parts=("Q1",)))
     source = tmp_path / "source"
     write_sources(source=source, files=files)
     app = make_app(srcdir=source, confoverrides=_configuration())
@@ -366,7 +333,6 @@ def test_derived_layout_allows_a_guide_without_evaluation(
         source=source,
         files=_files(
             guide=guide,
-            mapping=_MAPPING,
             recipe=_default_recipe(parts=("Build a widget",)),
         ),
     )
@@ -393,7 +359,6 @@ def test_recipe_content_is_required(
         source=source,
         files=_files(
             guide="Guide\n=====\n",
-            mapping=_MAPPING,
             recipe=".. interviewer-guideline:: guide.rst\n",
         ),
     )
@@ -419,7 +384,6 @@ def test_layout_accepts_unrelated_heading_vocabulary(
         source=source,
         files=_files(
             guide=guide,
-            mapping=_MAPPING,
             recipe=textwrap.dedent(
                 text="""\
                 .. interviewer-guideline:: guide.rst
@@ -669,7 +633,7 @@ def test_completeness_contract_rejects_lost_content(
     source = tmp_path / "source"
     write_sources(
         source=source,
-        files=_files(guide=guide, mapping=_MAPPING, recipe=recipe),
+        files=_files(guide=guide, recipe=recipe),
     )
     app = make_app(
         srcdir=source,
@@ -755,7 +719,7 @@ def test_explicit_body_parts_with_shared_sections(
                  """
     )
     source = tmp_path / "source"
-    files = _files(guide=guide, mapping=_MAPPING, recipe=recipe)
+    files = _files(guide=guide, recipe=recipe)
     write_sources(source=source, files=files)
     app = make_app(
         srcdir=source,

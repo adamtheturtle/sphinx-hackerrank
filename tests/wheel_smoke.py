@@ -63,11 +63,9 @@ def main() -> None:
             },
         )
         assert (temp / "output/interviewer-guidelines/index.html").is_file()
-        for language in ("python", "javascript"):
+        for output in ("guide.html",):
             fragment = (
-                temp
-                / "output/interviewer-guidelines/topics/widgets"
-                / f"{language}.html"
+                temp / "output/interviewer-guidelines/topics/widgets" / output
             )
             assert fragment.is_file()
         print("Installed-wheel build passed outside the checkout.")

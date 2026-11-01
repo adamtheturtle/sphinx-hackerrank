@@ -1,10 +1,9 @@
-"""Reuse parsed guide sections in language-specific Sphinx Interviewer
+"""Reuse parsed guide sections in Sphinx Interviewer
 Guidelines.
 """
 
 from docutils import nodes
 from sphinx_section_include import copy_section
-from sphinx_toolbox.collapse import CollapseNode, CollapseSummaryNode
 
 
 def _rubric(title: nodes.Node) -> nodes.rubric:
@@ -19,13 +18,10 @@ def section_content(
     *,
     section: nodes.section,
     guide: str,
-    language: str,
     include_heading: bool,
     exclude_sections: tuple[nodes.section, ...],
 ) -> list[nodes.Node]:
-    """Copy selected nodes without importing the guide's anchors or
-    language selectors.
-    """
+    """Copy selected nodes without importing the guide's anchors."""
     container = nodes.container()
     if include_heading:
         container += _rubric(title=section[0])
@@ -49,13 +45,4 @@ def section_content(
         if isinstance(element, nodes.reference) and "refid" in element:
             element["refuri"] = f"{guide}.html#{element['refid']}"
             del element["refid"]
-    for collapse in list(container.findall(condition=CollapseNode)):
-        if collapse["label"] == language:
-            collapse.replace_self(
-                new=[
-                    child
-                    for child in collapse.children
-                    if not isinstance(child, CollapseSummaryNode)
-                ]
-            )
     return container.children

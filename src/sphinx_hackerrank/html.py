@@ -107,42 +107,31 @@ def html_equivalent(left: str, right: str, /) -> bool:
     return normalize_html(html=left) == normalize_html(html=right)
 
 
-def fragment_path(*, output_dir: Path, docname: str, language: str) -> Path:
-    """Locate a language fragment in a builder output directory."""
-    return (
-        output_dir
-        / "interviewer-guidelines"
-        / docname.removesuffix("-interviewer-guideline")
-        / f"{language}.html"
-    )
-
-
 def render_fragment(
     *,
     html: str,
-    language: str,
+    selector: str,
+    output_path: str,
     docname: str = "interviewer-guideline",
     source_url: str | None = None,
     source_suffix: str = ".html",
     source_anchors: bool = True,
 ) -> str:
-    """Extract a language view, retaining exact code and portable
+    """Extract a selected guide, retaining exact code and portable
     links.
     """
     soup = BeautifulSoup(markup=html, features="html.parser")
-    containers = soup.select(selector=f".interviewer-guideline-{language}")
+    containers = soup.select(selector=selector)
     if len(containers) != 1:
         message = (
-            f"Expected one Interviewer Guideline for {language}, "
+            f"Expected one Interviewer Guideline for {selector!r}, "
             f"found {len(containers)}"
         )
         raise ValueError(message)
     container = containers[0]
     for link in container.select(selector="a.headerlink"):
         link.decompose()
-    output = fragment_path(
-        output_dir=Path(), docname=docname, language=language
-    )
+    output = Path(output_path)
     for link in container.select(selector="a[href]"):
         url = urlsplit(url=str(object=link["href"]))
         if (

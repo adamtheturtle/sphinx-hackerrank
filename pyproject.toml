@@ -38,7 +38,6 @@ dynamic = [
 dependencies = [
     "beautifulsoup4>=4.15.0",
     "docutils>=0.21.2",
-    "pyyaml>=6.0.3",
     "sphinx>=9.1.1,<10",
     "sphinx-jinja2>=0.0.1",
     "sphinx-section-include>=2026.11.1",
@@ -84,7 +83,6 @@ dev = [
     "towncrier==26.9.0",
     "ty==0.0.92",
     "types-docutils==0.23.0.20260923",
-    "types-pyyaml",
     "vale==3.25.1.0",
     "vulture==2.16",
     "yamlfix==1.19.1",
@@ -141,8 +139,6 @@ lint.per-file-ignores."doccmd_*.py" = [
     # formatting but docstrings in docs may not match this style.
     "D200",
 ]
-# Mapping schema failures consistently use ValueError for invalid YAML values.
-lint.per-file-ignores."src/sphinx_hackerrank/targets.py" = [ "TRY004" ]
 # The wheel smoke test invokes uv and Python with controlled arguments.
 lint.per-file-ignores."tests/browser_smoke.py" = [ "T201" ]
 lint.per-file-ignores."tests/wheel_smoke.py" = [ "S603", "S607", "T201" ]
