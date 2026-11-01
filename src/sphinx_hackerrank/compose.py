@@ -1,13 +1,25 @@
 """Apply a caller-defined layout to the maintained guide tree."""
 
 import posixpath
-from collections.abc import Callable
+from copy import copy
 from pathlib import Path
-from typing import Any, ClassVar, override
+from typing import override
 
 from docutils import nodes
-from docutils.parsers.rst import directives
+from docutils.parsers.rst import Parser
 from docutils.statemachine import StringList
+from docutils.transforms.references import (
+    AnonymousHyperlinks,
+    DanglingReferences,
+    ExternalTargets,
+    IndirectHyperlinks,
+    InternalTargets,
+    PropagateTargets,
+    Substitutions,
+)
+from docutils.utils import new_document
+from sphinx.transforms import DefaultSubstitutions
+from sphinx.util.docutils import SphinxDirective
 from sphinx_toolbox.collapse import CollapseNode, CollapseSummaryNode
 
 from sphinx_hackerrank.layout import (
@@ -17,7 +29,7 @@ from sphinx_hackerrank.layout import (
 )
 from sphinx_hackerrank.recipe import parse_recipe
 from sphinx_hackerrank.sections import (
-    InterviewerGuidelineSection,
+    find_sections,
     section_content,
 )
 from sphinx_hackerrank.targets import load_targets
@@ -35,19 +47,6 @@ def _disclosure(*, title: str, content: list[nodes.Node]) -> CollapseNode:
     return disclosure
 
 
-def _relative_section_path(
-    *, section: nodes.section, ancestor: nodes.section
-) -> str:
-    """Describe a nested section relative to an enclosing selection."""
-    path = [section[0].astext()]
-    parent = section.parent
-    while parent is not ancestor:
-        assert isinstance(parent, nodes.section)
-        path.append(parent[0].astext())
-        parent = parent.parent
-    return " / ".join(reversed(path))
-
-
 def _scope_title(*, scope: nodes.document | nodes.section) -> str:
     """Describe a source scope in a validation error."""
     return next(scope.findall(condition=nodes.title)).astext()
@@ -62,11 +61,14 @@ def _resolve_selection(
     if selection.headings == (".",):
         assert isinstance(scope, nodes.section)
         return scope
-    matches = [
-        section
-        for section in scope.findall(condition=nodes.section)
-        if section is not scope and section[0].astext() in selection.headings
-    ]
+    matches = list(
+        {
+            id(section): section
+            for heading in selection.headings
+            for section in find_sections(document=scope, selector=heading)
+            if section is not scope
+        }.values()
+    )
     if len(matches) > 1:
         message = (
             f"Ambiguous selection {selection.headings!r} "
@@ -115,7 +117,7 @@ def _category_content(
     """
     descendants = list(section.findall(condition=nodes.section))
     exclusions = tuple(
-        _relative_section_path(section=other, ancestor=section)
+        other
         for other in selected.values()
         if other is not section
         and any(other is child for child in descendants)
@@ -342,22 +344,22 @@ def _guide_content(
     return content
 
 
-class InterviewerGuideline(InterviewerGuidelineSection):
+class InterviewerGuideline(SphinxDirective):
     """Compose mapped language views using the consumer's layout
     policy.
     """
 
+    required_arguments = 1
     has_content = True
-
-    # Docutils defines option converter return values as Any.
-    option_spec: ClassVar[dict[str, Callable[[str], Any]] | None] = {  # pyrefly: ignore[explicit-any]
-        "layout": directives.unchanged_required,
-    }
 
     @override
     def run(self) -> list[nodes.Node]:
         """Derive the mapped language views from the source guide."""
-        layout, introduction = self._read_layout()
+        self.assert_has_content()
+        try:
+            layout, introduction = parse_recipe(directive=self)
+        except (TypeError, ValueError) as error:
+            raise self.error(message=str(object=error)) from error
         source_path = self._source_path()
         source_root = Path(self.env.srcdir).resolve()
         guide = (
@@ -422,45 +424,101 @@ class InterviewerGuideline(InterviewerGuidelineSection):
             node.document = self.state.document
         return [root]
 
-    def _read_layout(self) -> tuple[GuidelineLayout, StringList]:
-        """Resolve document-owned declarations or explicit Python
-        configuration.
-        """
-        inline = bool(self.content)
-        if inline:
-            if "layout" in self.options:
-                raise self.error(
-                    message="An inline recipe cannot be combined with :layout:"
-                )
-            try:
-                return parse_recipe(directive=self)
-            except (TypeError, ValueError) as error:
-                raise self.error(message=str(object=error)) from error
-        layout = self._configured_layout()
-        source, _line = self.get_source_info()
-        assert source is not None
-        return layout, StringList(
-            initlist=layout.introduction.splitlines(), source=source
-        )
-
-    def _configured_layout(self) -> GuidelineLayout:
-        """Retain explicit Python layouts for existing programmatic
-        consumers.
-        """
-        if "layout" in self.options:
-            layout = self.config.hackerrank_guideline_layouts.get(
-                self.options["layout"]
-            )
-        else:
-            layout = self.config.hackerrank_guideline_layout
-        if not isinstance(layout, GuidelineLayout):
+    def _source_path(self) -> Path:
+        """Validate the maintained RST source before parsing it."""
+        source_root = Path(self.env.srcdir).resolve()
+        _relative, filename = self.env.relfn2path(filename=self.arguments[0])
+        source_path = Path(filename).resolve()
+        if (
+            not source_path.is_relative_to(source_root)
+            or source_path.suffix != ".rst"
+        ):
             raise self.error(
-                message="interviewer-guideline requires a "
-                "caller-supplied layout "
-                "(declare an inline recipe, set hackerrank_guideline_layout, "
-                "or choose a configured :layout:)"
+                message="Interviewer Guideline source must be an RST guide "
+                "within the source directory"
             )
-        return layout
+        if (
+            source_path
+            == Path(self.env.doc2path(docname=self.env.docname)).resolve()
+        ):
+            raise self.error(
+                message="An Interviewer Guideline cannot include itself"
+            )
+        return source_path
+
+    def _guide_document(
+        self, *, source_path: Path, language_key: str
+    ) -> tuple[nodes.document, str]:
+        """Read each mapped language once and track its dependencies."""
+        source_root = Path(self.env.srcdir).resolve()
+        language = self.config.hackerrank_languages.get(language_key)
+        if language is None:
+            raise self.error(
+                message=(
+                    "Expected one Interviewer Guideline language config for "
+                    f"{language_key!r}"
+                )
+            )
+        self.env.note_dependency(filename=source_path)
+        document = self._parse_guide(
+            source_path=source_path,
+            source_root=source_root,
+            context=language.get("context", {}),
+        )
+        return document, str(object=language.get("name", language_key))
+
+    def _parse_guide(
+        self,
+        *,
+        source_path: Path,
+        source_root: Path,
+        context: dict[str, object],
+    ) -> nodes.document:
+        """Parse a guide with the selected language context and restore
+        settings.
+        """
+        settings = copy(x=self.state.document.settings)
+        document = new_document(
+            source_path=str(
+                object=self.env.doc2path(docname=self.env.docname)
+            ),
+            settings=settings,
+        )
+        contexts = self.config.jinja2_contexts
+        context_name = self.config.hackerrank_jinja_context
+        self.config.jinja2_contexts = {
+            **contexts,
+            context_name: {
+                **contexts.get(context_name, {}),
+                **context,
+            },
+        }
+        relative_source = source_path.relative_to(source_root).as_posix()
+        try:
+            source = "\n\n".join(
+                part
+                for part in (
+                    self.config.rst_prolog or "",
+                    f".. include:: /{relative_source}",
+                    self.config.rst_epilog or "",
+                )
+                if bool(part)
+            )
+            Parser().parse(inputstring=source, document=document)
+            for transform in (
+                DefaultSubstitutions,
+                Substitutions,
+                PropagateTargets,
+                AnonymousHyperlinks,
+                IndirectHyperlinks,
+                ExternalTargets,
+                InternalTargets,
+                DanglingReferences,
+            ):
+                transform(document=document).apply()
+        finally:
+            self.config.jinja2_contexts = contexts
+        return document
 
     def _introduction(
         self, *, guide: str, introduction: StringList

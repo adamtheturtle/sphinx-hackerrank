@@ -257,6 +257,5 @@ def parse_recipe(
         parts=tuple(parts),
         leading_sections=tuple(leading),
         trailing_sections=tuple(trailing),
-        introduction="\n".join(introduction),
     )
     return layout, introduction

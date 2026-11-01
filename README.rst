@@ -108,57 +108,23 @@ Optional empty groups are omitted after admonitions are removed.
 Missing mappings, incomplete parts, missing required content, and ambiguous selected headings fail the build.
 Changing the guide, mapping, recipe, or an included recipe file refreshes the view.
 
-Programmatic consumers can still configure ``GuidelineLayout``, ``GuidelinePart``, ``SectionGroup``, and ``SectionSelection`` from ``sphinx_hackerrank.layout``.
-The layout's ``parts`` field contains independently declared ``GuidelinePart`` objects.
-Each part has a ``heading`` and its own ``groups``.
-This replaces shared groups, ``part_headings``, and ``GroupRequirement``.
-RST recipes use explicit ``guideline-part`` blocks instead of ``:parts:`` and ``:required-for:``.
-``hackerrank_guideline_layout`` supplies a default Python layout, and ``hackerrank_guideline_layouts`` maps names to layouts selected with ``:layout:``.
-An inline recipe cannot be combined with ``:layout:``.
+Section selections
+------------------
 
-For other layouts, include native sections by exact heading path or an existing RST section label:
+Use one RST composition workflow for every guide.
+Select a literal source heading with ``guideline-select:: Brief``.
+Literal headings take precedence, including headings which contain ``/``.
+When a name is repeated beneath a part, select an exact heading path such as ``Brief / Discussion`` or a standard RST section label such as ``#stable-discussion``.
+Paths are relative to the selected part.
+Shared before/after selections are relative to the full guide.
+Labels must identify a section within the same scope.
+Missing or ambiguous required selections fail the build.
 
-.. code-block:: rst
-
-   .. container:: hr-interviewer-guideline interviewer-guideline-python
-
-      .. collapse:: Prompt
-
-         .. interviewer-guideline-section:: widgets.rst
-            :section: Part 1 / Prompt
-            :language: python
-
-* Use ``:section: #widget-prompt`` to select a labelled section.
-* Add ``:include-heading:`` to retain the selected section's heading.
-* Nested headings become rubrics inside disclosures.
-* Build with ``-W`` to reject missing or ambiguous selections as directive errors.
-* Sections come from the full guide without extraction markers or duplicated content.
-* Native includes, substitutions, and the guide's existing Jinja templates are supported.
-* Variants are cached within each Interviewer Guideline read and discarded before Sphinx persists the document tree.
-* Guide and included-file dependencies are tracked for incremental builds.
-
-Subsection exclusions
----------------------
-
-Keep the guide's existing heading hierarchy when composing separate disclosures.
-Use ``:exclude-sections:`` to omit subsections from a parent selection:
-
-.. code-block:: rst
-
-   .. interviewer-guideline-section:: widgets.rst
-      :section: Part 1 / Prompt
-      :language: python
-      :exclude-sections: Follow up questions
-
-   .. interviewer-guideline-section:: widgets.rst
-      :section: Part 1 / Prompt / Follow up questions
-      :language: python
-
-* Exclusions are heading paths relative to the selected section, or section labels within it.
-* List multiple exclusions on separate indented lines.
-* Missing or ambiguous exclusions fail the build, as does excluding the selected section itself.
-* Exclusions affect only the copied view.
-  The source guide and other selections retain their content.
+Native includes, substitutions, and the guide's existing Jinja templates are supported.
+Each mapped language is parsed once for a composition, then all its selections reuse that parsed tree.
+Guide and included-file dependencies are tracked for incremental builds.
+Separately selected descendants are automatically excluded from copied parents using their resolved identities.
+No manual exclusion list or extraction markers are needed, and the full guide remains unchanged.
 
 Language contexts
 -----------------

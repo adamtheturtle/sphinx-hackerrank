@@ -347,7 +347,7 @@ def _part(*, heading: str, selections: str) -> str:
                 ),
                 prefix="   ",
             ),
-            "cannot be combined",
+            "maximum 1 argument",
         ),
         *[
             (
@@ -456,7 +456,7 @@ def test_removed_selector_options_are_rejected(
     expected = (
         "single-line names"
         if "required-for" in declarations
-        else "unknown option"
+        else "maximum 1 argument"
     )
     assert expected in app.warning.getvalue()
 
@@ -491,3 +491,104 @@ def test_explicit_parts_follow_declaration_order(
             item.get_text()
             for item in container.select(selector=":scope > details > summary")
         ] == ["Stage two", "Stage one"]
+
+
+def test_explicit_selector_identity_excludes_the_correct_descendant(
+    *, make_app: Callable[..., SphinxTestApp], tmp_path: Path
+) -> None:
+    """A literal slash heading cannot redirect a nested-section
+    exclusion.
+    """
+    guide = textwrap.dedent(
+        text="""\
+        Widgets
+        =======
+
+        Stage one
+        ---------
+
+        Brief
+        ~~~~~
+
+        Build a widget.
+
+        Details
+        ^^^^^^^
+
+        .. _nested-leaf:
+
+        Leaf
+        ++++
+
+        Nested leaf content.
+
+        Details / Leaf
+        ^^^^^^^^^^^^^^
+
+        Literal slash heading content.
+        """
+    )
+    recipe = _recipe(
+        declarations=textwrap.dedent(
+            text="""\
+            .. guideline-part:: Stage one
+
+               .. guideline-group:: Work
+
+                  .. guideline-select:: Brief
+
+               .. guideline-group:: Discussion
+
+                  .. guideline-select:: #nested-leaf
+                     :alternatives: Details / Leaf / Missing
+
+               .. guideline-group:: Literal
+
+                  .. guideline-select:: Details / Leaf
+            """
+        )
+    )
+    source = tmp_path / "source"
+    write_sources(
+        source=source, files={**_sources(recipe=recipe), "guide.rst": guide}
+    )
+    app = make_app(
+        srcdir=source,
+        exception_on_warning=True,
+        confoverrides=_configuration(),
+    )
+    app.build()
+    soup = BeautifulSoup(
+        markup=(
+            Path(app.outdir) / "view-interviewer-guideline.html"
+        ).read_text(),
+        features="html.parser",
+    )
+    for container in soup.select(selector=".hr-interviewer-guideline"):
+        work, discussion, literal = container.select(
+            selector=":scope > details > details"
+        )
+        assert "Build a widget." in work.get_text()
+        assert "Nested leaf content." not in work.get_text()
+        assert "Literal slash heading content." not in work.get_text()
+        assert discussion.get_text().count("Nested leaf content.") == 1
+        assert literal.get_text().count("Literal slash heading content.") == 1
+
+
+def test_removed_manual_directive_is_rejected(
+    *, make_app: Callable[..., SphinxTestApp], tmp_path: Path
+) -> None:
+    """Recipes are the only registered authoring entry point."""
+    source = tmp_path / "source"
+    write_sources(
+        source=source,
+        files=_sources(
+            recipe=".. interviewer-guideline-section:: guide.rst\n"
+        ),
+    )
+    app = make_app(srcdir=source, confoverrides=_configuration())
+    app.build()
+    assert (
+        'Unknown directive type "interviewer-guideline-section"'
+        in app.warning.getvalue()
+    )
