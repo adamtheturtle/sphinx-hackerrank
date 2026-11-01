@@ -1,18 +1,19 @@
 .. interviewer-guideline:: widgets.rst
-   :parts: Part 1
 
    .. guideline-introduction::
 
       See the `full guide <{source_url}>`_.
 
-   .. guideline-group:: Prompt
+   .. guideline-part:: Part 1
 
-      .. guideline-select:: Prompt
+      .. guideline-group:: Prompt
 
-   .. guideline-group:: Follow up questions
+         .. guideline-select:: Prompt
 
-      .. guideline-select:: Follow up questions
+      .. guideline-group:: Follow up questions
 
-   .. guideline-group:: FAQ
+         .. guideline-select:: Follow up questions
 
-      .. guideline-select:: FAQ
+      .. guideline-group:: FAQ
+
+         .. guideline-select:: FAQ

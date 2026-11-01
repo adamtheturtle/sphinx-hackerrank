@@ -12,6 +12,7 @@ from sphinx_toolbox.collapse import CollapseNode, CollapseSummaryNode
 
 from sphinx_hackerrank.layout import (
     GuidelineLayout,
+    GuidelinePart,
     SectionSelection,
 )
 from sphinx_hackerrank.recipe import parse_recipe
@@ -86,7 +87,7 @@ def _resolve_selection(
 def _selected_sections(
     *,
     part: nodes.section,
-    layout: GuidelineLayout,
+    layout: GuidelinePart,
 ) -> dict[SectionSelection, nodes.section]:
     """Resolve configured selections at any depth beneath a matched
     part.
@@ -183,14 +184,11 @@ def _part_content(
     guide: str,
     language: str,
     exclude_admonitions: bool,
-    layout: GuidelineLayout,
-) -> tuple[CollapseNode, set[str]]:
-    """Render configured groups and return which contain actual
-    content.
-    """
+    layout: GuidelinePart,
+) -> CollapseNode:
+    """Render this part's explicitly declared groups."""
     selected = _selected_sections(part=part, layout=layout)
     categories: list[nodes.Node] = []
-    rendered: set[str] = set()
     for group in layout.groups:
         content: list[nodes.Node] = []
         for selection in group.sections:
@@ -207,11 +205,10 @@ def _part_content(
                 )
         if bool(content):
             categories.append(_disclosure(title=group.title, content=content))
-            rendered.add(group.title)
     if not bool(categories):
         message = f"Guide part {part[0].astext()!r} has no rendered content"
         raise ValueError(message)
-    return _disclosure(title=part[0].astext(), content=categories), rendered
+    return _disclosure(title=part[0].astext(), content=categories)
 
 
 def _require_parts(*, available: set[str], required: tuple[str, ...]) -> None:
@@ -231,11 +228,11 @@ def _find_parts(
     parts = [
         section
         for section in document.findall(condition=nodes.section)
-        if section[0].astext() in layout.part_headings
+        if section[0].astext() in tuple(part.heading for part in layout.parts)
     ]
     _require_parts(
         available={part[0].astext() for part in parts},
-        required=layout.part_headings,
+        required=tuple(part.heading for part in layout.parts),
     )
     titles = [part[0].astext() for part in parts]
     if len(titles) != len(set(titles)):
@@ -251,7 +248,8 @@ def _find_parts(
                 )
                 raise ValueError(message)
             parent = parent.parent
-    return parts
+    by_title = {part[0].astext(): part for part in parts}
+    return [by_title[part.heading] for part in layout.parts]
 
 
 def _outer_content(
@@ -321,29 +319,16 @@ def _guide_content(
         language=language,
         exclude_admonitions=exclude_admonitions,
     )
-    rendered: dict[str, set[str]] = {}
-    for part in parts:
-        disclosure, groups = _part_content(
-            part=part,
-            guide=guide,
-            language=language,
-            exclude_admonitions=exclude_admonitions,
-            layout=layout,
+    for part, declaration in zip(parts, layout.parts, strict=True):
+        content.append(
+            _part_content(
+                part=part,
+                guide=guide,
+                language=language,
+                exclude_admonitions=exclude_admonitions,
+                layout=declaration,
+            )
         )
-        content.append(disclosure)
-        rendered[part[0].astext()] = groups
-    for requirement in layout.required_groups:
-        _require_parts(
-            available=set(rendered), required=requirement.part_headings
-        )
-        for title in requirement.part_headings:
-            missing = set(requirement.groups) - rendered[title]
-            if bool(missing):
-                message = (
-                    f"Required groups {sorted(missing)!r} "
-                    f"missing from guide part {title!r}"
-                )
-                raise ValueError(message)
     content.extend(
         _outer_content(
             document=document,
@@ -367,7 +352,6 @@ class InterviewerGuideline(InterviewerGuidelineSection):
     # Docutils defines option converter return values as Any.
     option_spec: ClassVar[dict[str, Callable[[str], Any]] | None] = {  # pyrefly: ignore[explicit-any]
         "layout": directives.unchanged_required,
-        "parts": directives.unchanged_required,
     }
 
     @override
@@ -442,7 +426,7 @@ class InterviewerGuideline(InterviewerGuidelineSection):
         """Resolve document-owned declarations or explicit Python
         configuration.
         """
-        inline = bool(self.content) or "parts" in self.options
+        inline = bool(self.content)
         if inline:
             if "layout" in self.options:
                 raise self.error(

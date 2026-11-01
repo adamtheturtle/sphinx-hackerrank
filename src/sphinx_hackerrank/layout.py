@@ -10,6 +10,9 @@ def _names(*, values: tuple[str, ...], description: str) -> None:
     if not bool(values) or any(not bool(value.strip()) for value in values):
         message = f"{description} must contain nonempty names"
         raise ValueError(message)
+    if any("\n" in value for value in values):
+        message = f"{description} must contain single-line names"
+        raise ValueError(message)
     if len(values) != len(set(values)):
         message = f"{description} must not contain duplicates"
         raise ValueError(message)
@@ -51,36 +54,15 @@ class SectionGroup:
 
 
 @dataclass(frozen=True, kw_only=True)
-class GroupRequirement:
-    """Require rendered groups in explicitly selected parts."""
+class GuidelinePart:
+    """One source part with its own explicitly declared groups."""
 
-    groups: tuple[str, ...]
-    part_headings: tuple[str, ...]
-
-    def __post_init__(self) -> None:
-        """Reject requirements which cannot describe a real part set."""
-        _names(values=self.part_headings, description="Part headings")
-        _names(values=self.groups, description="Required groups")
-
-
-@dataclass(frozen=True, kw_only=True)
-class GuidelineLayout:
-    """A consumer's layout and explicit content-completeness
-    expectations.
-    """
-
+    heading: str
     groups: tuple[SectionGroup, ...]
-    part_headings: tuple[str, ...]
-    leading_sections: tuple[SectionSelection, ...] = ()
-    trailing_sections: tuple[SectionSelection, ...] = ()
-    required_groups: tuple[GroupRequirement, ...] = ()
-    introduction: str = ""
 
     def __post_init__(self) -> None:
-        """Validate the recipe before optional selections could hide a
-        typo.
-        """
-        _names(values=self.part_headings, description="Part headings")
+        """Reject invalid or ambiguous declarations within this part."""
+        _names(values=(self.heading,), description="Part heading")
         _names(
             values=tuple(group.title for group in self.groups),
             description="Group titles",
@@ -94,6 +76,23 @@ class GuidelineLayout:
             ),
             description="Grouped headings",
         )
+
+
+@dataclass(frozen=True, kw_only=True)
+class GuidelineLayout:
+    """Explicit parts and shared selections owned by the consumer."""
+
+    parts: tuple[GuidelinePart, ...]
+    leading_sections: tuple[SectionSelection, ...] = ()
+    trailing_sections: tuple[SectionSelection, ...] = ()
+    introduction: str = ""
+
+    def __post_init__(self) -> None:
+        """Validate part identities and shared content selections."""
+        _names(
+            values=tuple(part.heading for part in self.parts),
+            description="Part headings",
+        )
         outer = self.leading_sections + self.trailing_sections
         if bool(outer):
             _names(
@@ -106,10 +105,4 @@ class GuidelineLayout:
             )
             if any("." in selection.headings for selection in outer):
                 message = "Self-selection is only allowed within parts"
-                raise ValueError(message)
-        group_names = {group.title for group in self.groups}
-        for requirement in self.required_groups:
-            unknown = set(requirement.groups) - group_names
-            if bool(unknown):
-                message = f"Unknown required groups: {sorted(unknown)!r}"
                 raise ValueError(message)

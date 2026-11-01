@@ -10,8 +10,8 @@ from docutils.statemachine import StringList
 from sphinx.util.docutils import SphinxDirective
 
 from sphinx_hackerrank.layout import (
-    GroupRequirement,
     GuidelineLayout,
+    GuidelinePart,
     SectionGroup,
     SectionSelection,
 )
@@ -19,6 +19,10 @@ from sphinx_hackerrank.layout import (
 
 class _Recipe(nodes.container):
     """Identify the parent of top-level recipe declarations."""
+
+
+class _PartBody(nodes.container):
+    """Identify the parent of a part's group declarations."""
 
 
 class _GroupBody(nodes.container):
@@ -41,7 +45,7 @@ class _Declaration(nodes.Element):
     def __init__(
         self,
         *,
-        value: StringList | SectionGroup | GroupRequirement | _OuterSelection,
+        value: StringList | SectionGroup | GuidelinePart | _OuterSelection,
     ) -> None:
         """Keep recipe data out of the rendered document tree."""
         super().__init__()
@@ -55,21 +59,6 @@ class _SelectionNode(nodes.Element):
         """Store a validated source selection."""
         super().__init__()
         self.selection = selection
-
-
-def _text_option(*, directive: SphinxDirective, name: str) -> str:
-    """Read a string which the directive's converter already validated."""
-    value = directive.options[name]
-    assert isinstance(value, str)
-    return value
-
-
-def _headings_option(
-    *, directive: SphinxDirective, name: str
-) -> tuple[str, ...]:
-    """Read exact heading names, one per option line."""
-    value = _text_option(directive=directive, name=name)
-    return tuple(line.strip() for line in value.splitlines())
 
 
 def _selection(*, directive: SphinxDirective) -> SectionSelection:
@@ -91,7 +80,9 @@ def _selection(*, directive: SphinxDirective) -> SectionSelection:
 
 
 def _require_parent(
-    *, directive: SphinxDirective, parent: type[_Recipe] | type[_GroupBody]
+    *,
+    directive: SphinxDirective,
+    parent: type[_Recipe] | type[_PartBody] | type[_GroupBody],
 ) -> None:
     """Reject declarations outside their enclosing recipe or group."""
     if not isinstance(directive.state.parent, parent):
@@ -169,17 +160,11 @@ class GuidelineGroup(SphinxDirective):
     required_arguments = 1
     final_argument_whitespace = True
     has_content = True
-    # Docutils defines option converter return values as Any.
-    option_spec: ClassVar[dict[str, Callable[[str], Any]] | None] = {  # pyrefly: ignore[explicit-any]
-        "required-for": directives.unchanged_required,
-    }
 
     @override
     def run(self) -> list[nodes.Node]:
-        """Parse selections and an optional conditional completeness
-        rule.
-        """
-        _require_parent(directive=self, parent=_Recipe)
+        """Parse the selections declared for this part's group."""
+        _require_parent(directive=self, parent=_PartBody)
         self.assert_has_content()
         body = _GroupBody()
         _ = self.state.nested_parse(
@@ -197,38 +182,57 @@ class GuidelineGroup(SphinxDirective):
             group = SectionGroup(
                 title=self.arguments[0], sections=tuple(selections)
             )
-            declarations: list[nodes.Node] = [_Declaration(value=group)]
-            if "required-for" in self.options:
-                declarations.append(
-                    _Declaration(
-                        value=GroupRequirement(
-                            part_headings=_headings_option(
-                                directive=self, name="required-for"
-                            ),
-                            groups=(group.title,),
-                        )
-                    )
-                )
         except ValueError as error:
             raise self.error(message=str(object=error)) from error
-        return declarations
+        return [_Declaration(value=group)]
+
+
+class GuidelinePartDirective(SphinxDirective):
+    """Declare one exact source part and its own groups."""
+
+    required_arguments = 1
+    final_argument_whitespace = True
+    has_content = True
+
+    @override
+    def run(self) -> list[nodes.Node]:
+        """Keep each part's selections independent of other parts."""
+        _require_parent(directive=self, parent=_Recipe)
+        self.assert_has_content()
+        body = _PartBody()
+        _ = self.state.nested_parse(
+            block=self.content, input_offset=self.content_offset, node=body
+        )
+        groups: list[SectionGroup] = []
+        for child in body.children:
+            if not isinstance(child, _Declaration) or not isinstance(
+                child.value, SectionGroup
+            ):
+                raise self.error(
+                    message="A guideline part only accepts "
+                    "guideline-group declarations"
+                )
+            groups.append(child.value)
+        try:
+            part = GuidelinePart(
+                heading=self.arguments[0], groups=tuple(groups)
+            )
+        except ValueError as error:
+            raise self.error(message=str(object=error)) from error
+        return [_Declaration(value=part)]
 
 
 def parse_recipe(
     *, directive: SphinxDirective
 ) -> tuple[GuidelineLayout, StringList]:
-    """Read an RST recipe once, before rendering its mapped languages."""
-    if "parts" not in directive.options:
-        message = "An inline guideline recipe requires :parts:"
-        raise ValueError(message)
+    """Read explicit RST parts before rendering mapped languages."""
     recipe = _Recipe()
     _ = directive.state.nested_parse(
         block=directive.content,
         input_offset=directive.content_offset,
         node=recipe,
     )
-    groups: list[SectionGroup] = []
-    requirements: list[GroupRequirement] = []
+    parts: list[GuidelinePart] = []
     leading: list[SectionSelection] = []
     trailing: list[SectionSelection] = []
     introductions: list[StringList] = []
@@ -237,25 +241,22 @@ def parse_recipe(
             message = "A guideline recipe only accepts recipe declarations"
             raise TypeError(message)
         value = child.value
-        if isinstance(value, SectionGroup):
-            groups.append(value)
-        elif isinstance(value, GroupRequirement):
-            requirements.append(value)
+        if isinstance(value, GuidelinePart):
+            parts.append(value)
         elif isinstance(value, _OuterSelection):
             destination = leading if value.position == "before" else trailing
             destination.append(value.selection)
         else:
+            assert isinstance(value, StringList)
             introductions.append(value)
     if len(introductions) > 1:
         message = "Only one guideline-introduction is allowed"
         raise ValueError(message)
     introduction = introductions[0] if bool(introductions) else StringList()
     layout = GuidelineLayout(
-        part_headings=_headings_option(directive=directive, name="parts"),
-        groups=tuple(groups),
+        parts=tuple(parts),
         leading_sections=tuple(leading),
         trailing_sections=tuple(trailing),
-        required_groups=tuple(requirements),
         introduction="\n".join(introduction),
     )
     return layout, introduction

@@ -14,6 +14,7 @@ from sphinx_hackerrank.recipe import (
     GuidelineBefore,
     GuidelineGroup,
     GuidelineIntroduction,
+    GuidelinePartDirective,
     GuidelineSelect,
 )
 from sphinx_hackerrank.sections import (
@@ -99,6 +100,7 @@ def setup(app: Sphinx) -> dict[str, object]:
     )
     app.add_directive(name="interviewer-guideline", cls=InterviewerGuideline)
     app.add_directive(name="guideline-introduction", cls=GuidelineIntroduction)
+    app.add_directive(name="guideline-part", cls=GuidelinePartDirective)
     app.add_directive(name="guideline-group", cls=GuidelineGroup)
     app.add_directive(name="guideline-select", cls=GuidelineSelect)
     app.add_directive(name="guideline-before", cls=GuidelineBefore)

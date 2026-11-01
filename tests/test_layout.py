@@ -1,39 +1,56 @@
-"""Invalid completeness policies fail when the consumer constructs
-them.
-"""
+"""Invalid explicit layouts fail before any content is selected."""
 
 from collections.abc import Callable
 
 import pytest
 
 from sphinx_hackerrank.layout import (
-    GroupRequirement,
     GuidelineLayout,
+    GuidelinePart,
     SectionGroup,
     SectionSelection,
+)
+
+_GROUP = SectionGroup(
+    title="Work", sections=(SectionSelection(headings=("Brief",)),)
 )
 
 
 @pytest.mark.parametrize(
     argnames=("factory", "message"),
     argvalues=[
+        (lambda: GuidelineLayout(parts=()), "nonempty names"),
         (
-            lambda: GroupRequirement(groups=("Work",), part_headings=()),
+            lambda: GuidelinePart(heading=" ", groups=(_GROUP,)),
             "nonempty names",
         ),
+        (lambda: GuidelinePart(heading="One", groups=()), "nonempty names"),
         (
-            lambda: GroupRequirement(
-                groups=("Work",), part_headings=("One", "One")
+            lambda: GuidelinePart(heading="One", groups=(_GROUP, _GROUP)),
+            "duplicates",
+        ),
+        (
+            lambda: GuidelinePart(
+                heading="One",
+                groups=(
+                    _GROUP,
+                    SectionGroup(title="Other", sections=_GROUP.sections),
+                ),
             ),
             "duplicates",
         ),
         (
-            lambda: GuidelineLayout(groups=(), part_headings=()),
-            "nonempty names",
+            lambda: GuidelineLayout(
+                parts=(
+                    GuidelinePart(heading="One", groups=(_GROUP,)),
+                    GuidelinePart(heading="One", groups=(_GROUP,)),
+                )
+            ),
+            "duplicates",
         ),
         (
-            lambda: GroupRequirement(groups=(), part_headings=("One",)),
-            "nonempty names",
+            lambda: SectionSelection(headings=("Brief\nCases",)),
+            "single-line names",
         ),
         (lambda: SectionSelection(headings=()), "nonempty names"),
         (lambda: SectionSelection(headings=(" ",)), "nonempty names"),
@@ -47,46 +64,17 @@ from sphinx_hackerrank.layout import (
             "contain selections",
         ),
         (
-            lambda: GuidelineLayout(part_headings=("One",), groups=()),
-            "nonempty names",
-        ),
-        (
             lambda: GuidelineLayout(
-                part_headings=("One",),
-                groups=(
-                    SectionGroup(
-                        title="Work",
-                        sections=(SectionSelection(headings=("Brief",)),),
-                    ),
-                ),
+                parts=(GuidelinePart(heading="One", groups=(_GROUP,)),),
                 leading_sections=(SectionSelection(headings=(".",)),),
             ),
             "only allowed within parts",
-        ),
-        (
-            lambda: GuidelineLayout(
-                part_headings=("One",),
-                groups=(
-                    SectionGroup(
-                        title="Work",
-                        sections=(SectionSelection(headings=("Brief",)),),
-                    ),
-                ),
-                required_groups=(
-                    GroupRequirement(
-                        part_headings=("One",), groups=("Unknown",)
-                    ),
-                ),
-            ),
-            "Unknown required groups",
         ),
     ],
 )
 def test_invalid_layout_contract(
     *, factory: Callable[[], object], message: str
 ) -> None:
-    """Configuration mistakes cannot turn required content into
-    omissions.
-    """
+    """Typos cannot turn mandatory selections into silent omissions."""
     with pytest.raises(expected_exception=ValueError, match=message):
         _ = factory()
