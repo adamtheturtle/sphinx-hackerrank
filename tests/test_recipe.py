@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 from bs4 import BeautifulSoup
+from docutils import nodes
 from sphinx.testing.util import SphinxTestApp
 
 from tests.builds import write_sources
@@ -47,12 +48,12 @@ _RECIPE = r""".. interviewer-guideline:: guide.rst
    :parts: Stage .*
    :minimum-parts: 2
 
-   .. include:: /recipe.txt
+   .. include:: recipe.txt
 """
 _DECLARATIONS = """\
 .. guideline-introduction::
 
-   .. include:: /intro.txt
+   .. include:: intro.txt
 
    See the `full guide <{source_url}>`_.
 
@@ -62,7 +63,7 @@ _DECLARATIONS = """\
    :required-for: Stage .*
    :minimum-parts: 2
 
-   .. include:: /selections.txt
+   .. include:: selections.txt
 
 .. guideline-group:: Questions
 
@@ -122,12 +123,22 @@ def test_inline_recipe_tracks_native_includes(
     both languages.
     """
     source = tmp_path / "source"
+    originals = _sources(recipe=_RECIPE)
     files = {
-        **_sources(recipe=_RECIPE),
-        "recipe.txt": _DECLARATIONS,
-        "selections.txt": ".. guideline-select:: .\n",
-        "intro.txt": "Interviewer only.\n",
+        f"topics/{name}": content
+        for name, content in originals.items()
+        if name != "index.rst"
     }
+    files.update(
+        {
+            "index.rst": originals["index.rst"]
+            .replace("   guide", "   topics/guide")
+            .replace("   view", "   topics/view"),
+            "topics/recipe.txt": _DECLARATIONS,
+            "topics/selections.txt": ".. guideline-select:: .\n",
+            "topics/intro.txt": "Interviewer only.\n",
+        }
+    )
     write_sources(source=source, files=files)
     app = make_app(
         srcdir=source,
@@ -138,7 +149,7 @@ def test_inline_recipe_tracks_native_includes(
     for iteration in range(2):
         app.build()
         html = (
-            Path(app.outdir) / "view-interviewer-guideline.html"
+            Path(app.outdir) / "topics/view-interviewer-guideline.html"
         ).read_text()
         soup = BeautifulSoup(markup=html, features="html.parser")
         containers = soup.select(selector=".hr-interviewer-guideline")
@@ -165,19 +176,29 @@ def test_inline_recipe_tracks_native_includes(
             link = container.select_one(selector="a")
             assert link is not None
             assert link["href"] == "guide.html"
+        tree = app.env.get_doctree(docname="topics/view-interviewer-guideline")
+        introductions = [
+            node
+            for node in tree.findall(condition=nodes.paragraph)
+            if "full guide" in node.astext()
+        ]
+        assert len(introductions) == len(languages)
+        for introduction in introductions:
+            assert introduction.source is not None
+            assert Path(introduction.source).name == "recipe.txt"
         # Only the included recipe and introduction change, not the parent RST.
-        _ = (source / "recipe.txt").write_text(
+        _ = (source / "topics/recipe.txt").write_text(
             data=_DECLARATIONS.replace(
                 "guideline-group:: Questions",
                 "guideline-group:: Updated questions",
             )
         )
-        _ = (source / "intro.txt").write_text(
+        _ = (source / "topics/intro.txt").write_text(
             data="Updated interview advice.\n"
         )
     dependencies = {
         str(object=path)
-        for path in app.env.dependencies["view-interviewer-guideline"]
+        for path in app.env.dependencies["topics/view-interviewer-guideline"]
     }
     for name in ("recipe.txt", "selections.txt", "intro.txt"):
         assert any(path.endswith(name) for path in dependencies)
@@ -185,7 +206,7 @@ def test_inline_recipe_tracks_native_includes(
         for language in ("python", "javascript"):
             fragment = (
                 Path(app.outdir)
-                / "interviewer-guidelines/view"
+                / "interviewer-guidelines/topics/view"
                 / f"{language}.html"
             )
             assert "Updated interview advice." in fragment.read_text()

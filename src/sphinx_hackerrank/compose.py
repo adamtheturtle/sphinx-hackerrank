@@ -12,7 +12,7 @@ from docutils.statemachine import StringList
 from sphinx_toolbox.collapse import CollapseNode, CollapseSummaryNode
 
 from sphinx_hackerrank.layout import GuidelineLayout, SectionSelection
-from sphinx_hackerrank.recipe import parse_layout
+from sphinx_hackerrank.recipe import parse_recipe
 from sphinx_hackerrank.sections import (
     InterviewerGuidelineSection,
     section_content,
@@ -379,7 +379,7 @@ class InterviewerGuideline(InterviewerGuidelineSection):
     @override
     def run(self) -> list[nodes.Node]:
         """Derive the mapped language views from the source guide."""
-        layout = self._read_layout()
+        layout, introduction = self._read_layout()
         source_path = self._source_path()
         source_root = Path(self.env.srcdir).resolve()
         guide = (
@@ -425,7 +425,7 @@ class InterviewerGuideline(InterviewerGuidelineSection):
             )
             container += nodes.rubric("", title.astext() + ": " + language)
             container.extend(
-                item=self._introduction(guide=guide, layout=layout)
+                item=self._introduction(guide=guide, introduction=introduction)
             )
             try:
                 container.extend(
@@ -444,7 +444,7 @@ class InterviewerGuideline(InterviewerGuidelineSection):
             node.document = self.state.document
         return [root]
 
-    def _read_layout(self) -> GuidelineLayout:
+    def _read_layout(self) -> tuple[GuidelineLayout, StringList]:
         """Resolve document-owned declarations or explicit Python
         configuration.
         """
@@ -457,10 +457,15 @@ class InterviewerGuideline(InterviewerGuidelineSection):
                     message="An inline recipe cannot be combined with :layout:"
                 )
             try:
-                return parse_layout(directive=self)
+                return parse_recipe(directive=self)
             except (TypeError, ValueError) as error:
                 raise self.error(message=str(object=error)) from error
-        return self._configured_layout()
+        layout = self._configured_layout()
+        source, _line = self.get_source_info()
+        assert source is not None
+        return layout, StringList(
+            initlist=layout.introduction.splitlines(), source=source
+        )
 
     def _configured_layout(self) -> GuidelineLayout:
         """Retain explicit Python layouts for existing programmatic
@@ -482,7 +487,7 @@ class InterviewerGuideline(InterviewerGuidelineSection):
         return layout
 
     def _introduction(
-        self, *, guide: str, layout: GuidelineLayout
+        self, *, guide: str, introduction: StringList
     ) -> list[nodes.Node]:
         """Render the consumer's introductory RST with its source URL."""
         source_url = self.config.hackerrank_source_url
@@ -500,11 +505,12 @@ class InterviewerGuideline(InterviewerGuidelineSection):
         container = nodes.container()
         _ = self.state.nested_parse(
             block=StringList(
-                initlist=layout.introduction.replace(
-                    "{source_url}", uri
-                ).splitlines()
+                initlist=[
+                    line.replace("{source_url}", uri) for line in introduction
+                ],
+                items=introduction.items.copy(),
             ),
-            input_offset=self.content_offset,
+            input_offset=0,
             node=container,
         )
         return container.children

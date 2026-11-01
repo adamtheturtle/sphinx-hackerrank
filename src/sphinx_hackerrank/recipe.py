@@ -6,6 +6,7 @@ from typing import Any, ClassVar, Literal, override
 
 from docutils import nodes
 from docutils.parsers.rst import directives
+from docutils.statemachine import StringList
 from sphinx.util.docutils import SphinxDirective
 
 from sphinx_hackerrank.layout import (
@@ -38,7 +39,9 @@ class _Declaration(nodes.Element):
     """
 
     def __init__(
-        self, *, value: str | SectionGroup | GroupRequirement | _OuterSelection
+        self,
+        *,
+        value: StringList | SectionGroup | GroupRequirement | _OuterSelection,
     ) -> None:
         """Keep recipe data out of the rendered document tree."""
         super().__init__()
@@ -107,7 +110,7 @@ class GuidelineIntroduction(SphinxDirective):
         """Keep introduction markup for the mapped language containers."""
         _require_parent(directive=self, parent=_Recipe)
         self.assert_has_content()
-        return [_Declaration(value="\n".join(self.content))]
+        return [_Declaration(value=StringList(initlist=self.content))]
 
 
 class GuidelineSelect(SphinxDirective):
@@ -219,7 +222,9 @@ class GuidelineGroup(SphinxDirective):
         return declarations
 
 
-def parse_layout(*, directive: SphinxDirective) -> GuidelineLayout:
+def parse_recipe(
+    *, directive: SphinxDirective
+) -> tuple[GuidelineLayout, StringList]:
     """Read an RST recipe once, before rendering its mapped languages."""
     if "parts" not in directive.options:
         message = "An inline guideline recipe requires :parts:"
@@ -234,7 +239,7 @@ def parse_layout(*, directive: SphinxDirective) -> GuidelineLayout:
     requirements: list[GroupRequirement] = []
     leading: list[SectionSelection] = []
     trailing: list[SectionSelection] = []
-    introductions: list[str] = []
+    introductions: list[StringList] = []
     for child in recipe.children:
         if not isinstance(child, _Declaration):
             message = "A guideline recipe only accepts recipe declarations"
@@ -252,12 +257,14 @@ def parse_layout(*, directive: SphinxDirective) -> GuidelineLayout:
     if len(introductions) > 1:
         message = "Only one guideline-introduction is allowed"
         raise ValueError(message)
-    return GuidelineLayout(
+    introduction = introductions[0] if bool(introductions) else StringList()
+    layout = GuidelineLayout(
         part_pattern=_text_option(directive=directive, name="parts"),
         minimum_parts=_minimum(directive=directive),
         groups=tuple(groups),
         leading_sections=tuple(leading),
         trailing_sections=tuple(trailing),
         required_groups=tuple(requirements),
-        introduction="".join(introductions),
+        introduction="\n".join(introduction),
     )
+    return layout, introduction
