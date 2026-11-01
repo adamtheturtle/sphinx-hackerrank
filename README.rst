@@ -4,7 +4,8 @@ sphinx-hackerrank
 =================
 
 Export selected Sphinx HTML as portable HackerRank Interviewer Guidelines.
-Fragments include scoped styles and code-copy controls, with no external assets.
+Fragments embed scoped styles, code-copy controls, and local images.
+Externally hosted images retain their URLs without being fetched during export.
 
 Install and configure
 ---------------------
@@ -49,7 +50,7 @@ Write ``review.rst`` using ordinary RST and your chosen Sphinx extensions:
 For collapsible sections, use `sphinx-toolbox.collapse <https://sphinx-toolbox.readthedocs.io/en/stable/extensions/collapse.html>`_.
 For excerpts from maintained guides, use `sphinx-section-include <https://github.com/adamtheturtle/sphinx-section-include>`_.
 Consumers install and enable their own authoring and template extensions.
-See the `sample <./sample/source>`_ and its `dependencies <./sample/requirements.txt>`_.
+See the `sample <https://github.com/adamtheturtle/sphinx-hackerrank/tree/main/sample/source>`_ and its `dependencies <https://github.com/adamtheturtle/sphinx-hackerrank/blob/main/sample/requirements.txt>`_.
 
 Build
 -----
@@ -96,10 +97,14 @@ Use a separate tool to manage credentials, question identities, and HackerRank A
 ``normalize_html(html=...)`` exposes that normalized representation.
 The comparison can serve as the HackerRank SDK's ``notes_equal`` callback.
 
+When calling ``render_fragment`` directly with local images, supply ``image_paths`` mapping the rendered image URLs to their files.
+The builder supplies this mapping automatically.
+Missing or unsupported local images fail export instead of leaving broken URLs.
+
 Contributing
 ------------
 
-See `CONTRIBUTING.rst <./CONTRIBUTING.rst>`_ for checks and releases.
+See `CONTRIBUTING.rst <https://github.com/adamtheturtle/sphinx-hackerrank/blob/main/CONTRIBUTING.rst>`_ for checks and releases.
 Licensed under the MIT license.
 See ``LICENSE``.
 

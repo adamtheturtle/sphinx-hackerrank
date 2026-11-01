@@ -1,6 +1,7 @@
 """Exercise code copying in a real browser, outside the pytest matrix."""
 
 import textwrap
+from base64 import b64decode
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -16,6 +17,10 @@ def _check_page(*, page: Page, path: Path) -> None:
     _ = page.locator(selector="details").evaluate_all(
         expression="nodes => nodes.forEach(node => { node.open = true; })"
     )
+    for image in page.locator(selector="img").all():
+        assert image.evaluate(
+            expression="image => image.complete && image.naturalWidth > 0"
+        )
     blocks = page.locator(selector=".hr-interviewer-guideline pre")
     buttons = page.get_by_role(role="button", name="Copy code")
     assert blocks.count() > 0
@@ -70,6 +75,11 @@ def _build_fixture(*, directory: Path, code: str) -> tuple[Path, Path]:
     (source / "conf.py").touch()
     _ = (source / "code.txt").write_text(data=code, encoding="utf-8")
     (source / "empty.txt").touch()
+    _ = (source / "pixel.png").write_bytes(
+        data=b64decode(
+            s="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a2ioAAAAASUVORK5CYII="
+        )
+    )
     classes = "hr-interviewer-guideline selected-guide"
     _ = (source / "index.rst").write_text(
         data=textwrap.dedent(
@@ -84,6 +94,9 @@ def _build_fixture(*, directory: Path, code: str) -> tuple[Path, Path]:
 
                .. literalinclude:: empty.txt
                   :language: text
+
+               .. image:: pixel.png
+                  :alt: Example pixel
             """
         ),
         encoding="utf-8",
@@ -210,6 +223,10 @@ def main() -> None:
         plain = browser.new_context(java_script_enabled=False).new_page()
         _ = plain.goto(url=fixture.as_uri())
         expect(actual=plain.get_by_role(role="button")).to_have_count(count=0)
+        for image in plain.locator(selector="img").all():
+            assert image.evaluate(
+                expression="image => image.complete && image.naturalWidth > 0"
+            )
         assert (
             plain.locator(selector="pre").first.text_content() == rendered_code
         )

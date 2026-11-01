@@ -2,7 +2,10 @@
 
 import posixpath
 import re
+from base64 import b64encode
+from collections.abc import Mapping
 from importlib.resources import files
+from mimetypes import guess_type
 from pathlib import Path
 from urllib.parse import urljoin, urlsplit
 
@@ -116,6 +119,7 @@ def render_fragment(
     source_url: str | None = None,
     source_suffix: str = ".html",
     source_anchors: bool = True,
+    image_paths: Mapping[str, Path] | None = None,
 ) -> str:
     """Extract a selected guide, retaining exact code and portable
     links.
@@ -129,6 +133,10 @@ def render_fragment(
         )
         raise ValueError(message)
     container = containers[0]
+    _embed_images(
+        container=container,
+        image_paths={} if image_paths is None else image_paths,
+    )
     for link in container.select(selector="a.headerlink"):
         link.decompose()
     output = Path(output_path)
@@ -180,3 +188,43 @@ def render_fragment(
         f'<style type="text/css">{style}</style>\n{fragment}\n'
         f'<script data-hr-copy-code="">{script}</script>\n'
     )
+
+
+def _embed_images(*, container: Tag, image_paths: Mapping[str, Path]) -> None:
+    """Bundle local images without fetching externally hosted media."""
+    encoded: dict[Path, str] = {}
+
+    def image_url(*, uri: str) -> str:
+        """Keep URL fragments while reusing each file's encoded bytes."""
+        url = urlsplit(url=uri)
+        if bool(url.scheme) or bool(url.netloc):
+            return uri
+        path = image_paths.get(url.path)
+        if path is None:
+            message = f"No local image asset supplied for {uri!r}"
+            raise ValueError(message)
+        if path not in encoded:
+            mime, _encoding = guess_type(url=str(object=path))
+            if mime is None or not mime.startswith("image/"):
+                message = f"Unsupported image format: {path}"
+                raise ValueError(message)
+            encoded[path] = (
+                "data:"
+                + mime
+                + ";base64,"
+                + b64encode(s=path.read_bytes()).decode(encoding="ascii")
+            )
+        return encoded[path] + (
+            "#" + url.fragment if bool(url.fragment) else ""
+        )
+
+    for image in container.select(selector="img[src]"):
+        image["src"] = image_url(uri=str(object=image["src"]))
+    for link in container.select(selector="a[href]"):
+        url = urlsplit(url=str(object=link["href"]))
+        if (
+            not bool(url.scheme)
+            and not bool(url.netloc)
+            and url.path in image_paths
+        ):
+            link["href"] = image_url(uri=str(object=link["href"]))

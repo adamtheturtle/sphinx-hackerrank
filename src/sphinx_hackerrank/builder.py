@@ -5,6 +5,7 @@ from collections.abc import Iterator
 from html import escape
 from pathlib import Path
 from typing import Any, override
+from urllib.parse import quote
 
 from sphinx.builders.html import StandaloneHTMLBuilder
 
@@ -108,6 +109,12 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
                     source_url=self.config.hackerrank_source_url,
                     source_suffix=self.config.hackerrank_source_suffix,
                     source_anchors=self.config.hackerrank_source_anchors,
+                    image_paths={
+                        posixpath.join(
+                            self.imgpath, quote(string=filename)
+                        ): Path(self.srcdir) / source
+                        for source, filename in self.images.items()
+                    },
                 ),
                 encoding="utf-8",
             )
