@@ -8,7 +8,6 @@ from sphinx.config import Config
 
 from sphinx_hackerrank.builder import HackerRankBuilder
 from sphinx_hackerrank.compose import InterviewerGuideline
-from sphinx_hackerrank.layout import GuidelineLayout
 from sphinx_hackerrank.recipe import (
     GuidelineAfter,
     GuidelineBefore,
@@ -16,11 +15,6 @@ from sphinx_hackerrank.recipe import (
     GuidelineIntroduction,
     GuidelinePartDirective,
     GuidelineSelect,
-)
-from sphinx_hackerrank.sections import (
-    InterviewerGuidelineSection,
-    discard_guide_cache,
-    simplify_interviewer_guideline,
 )
 
 __version__ = version(distribution_name="sphinx-hackerrank")
@@ -82,22 +76,7 @@ def setup(app: Sphinx) -> dict[str, object]:
         rebuild="html",
         types=bool,
     )
-    app.add_config_value(
-        name="hackerrank_guideline_layout",
-        default=None,
-        rebuild="env",
-        types=(GuidelineLayout, type(None)),
-    )
-    app.add_config_value(
-        name="hackerrank_guideline_layouts",
-        default={},
-        rebuild="env",
-        types=dict,
-    )
     app.add_builder(builder=HackerRankBuilder)
-    app.add_directive(
-        name="interviewer-guideline-section", cls=InterviewerGuidelineSection
-    )
     app.add_directive(name="interviewer-guideline", cls=InterviewerGuideline)
     app.add_directive(name="guideline-introduction", cls=GuidelineIntroduction)
     app.add_directive(name="guideline-part", cls=GuidelinePartDirective)
@@ -105,10 +84,6 @@ def setup(app: Sphinx) -> dict[str, object]:
     app.add_directive(name="guideline-select", cls=GuidelineSelect)
     app.add_directive(name="guideline-before", cls=GuidelineBefore)
     app.add_directive(name="guideline-after", cls=GuidelineAfter)
-    _ = app.connect(event="doctree-read", callback=discard_guide_cache)
-    _ = app.connect(
-        event="doctree-resolved", callback=simplify_interviewer_guideline
-    )
     return {
         "version": __version__,
         "parallel_read_safe": True,

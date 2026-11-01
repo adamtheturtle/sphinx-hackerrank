@@ -10,12 +10,6 @@ import pytest
 from bs4 import BeautifulSoup
 from sphinx.testing.util import SphinxTestApp
 
-from sphinx_hackerrank.layout import (
-    GuidelineLayout,
-    GuidelinePart,
-    SectionGroup,
-    SectionSelection,
-)
 from tests.builds import write_sources
 
 _MAPPING = """\
@@ -91,65 +85,10 @@ How would you handle an empty widget name?
 """
 
 
-def _configuration(*, part_headings: tuple[str, ...]) -> dict[str, object]:
-    """Use a custom template context to expose accidental cross-language
-    reads.
-    """
+def _configuration() -> dict[str, object]:
+    """Use site-wide language settings without a Python layout."""
     return {
         "extensions": ["sphinx_hackerrank"],
-        "hackerrank_guideline_layout": GuidelineLayout(
-            parts=tuple(
-                GuidelinePart(
-                    heading=heading,
-                    groups=(
-                        SectionGroup(
-                            title="Prompt",
-                            sections=(SectionSelection(headings=("Prompt",)),),
-                        ),
-                        SectionGroup(
-                            title="FAQ",
-                            sections=(
-                                SectionSelection(
-                                    headings=("FAQ",), required=False
-                                ),
-                            ),
-                        ),
-                        SectionGroup(
-                            title="Signals and edge-case questions",
-                            sections=(
-                                SectionSelection(
-                                    headings=("Follow up questions",),
-                                    required=False,
-                                ),
-                                SectionSelection(
-                                    headings=("Key considerations",),
-                                    required=False,
-                                    include_heading=True,
-                                ),
-                            ),
-                        ),
-                        SectionGroup(
-                            title="Test cases",
-                            sections=(
-                                SectionSelection(
-                                    headings=("Test cases",), required=False
-                                ),
-                            ),
-                        ),
-                    ),
-                )
-                for heading in part_headings
-            ),
-            trailing_sections=(
-                SectionSelection(headings=("Evaluation",), required=False),
-            ),
-            introduction=(
-                "Interviewer only. Share prompts and test cases "
-                "as you reach each part. See the `full guide "
-                "<{source_url}>`_ for interview setup and "
-                "reference solutions."
-            ),
-        ),
         "hackerrank_jinja_context": "snippets",
         "jinja2_contexts": {"snippets": {"example": "unselected language"}},
         "hackerrank_languages": {
@@ -165,7 +104,55 @@ def _configuration(*, part_headings: tuple[str, ...]) -> dict[str, object]:
     }
 
 
-def _files(*, guide: str, mapping: str) -> dict[str, str]:
+def _default_recipe(*, parts: tuple[str, ...]) -> str:
+    """Build repeated test fixtures through the public RST workflow."""
+    prefix = (
+        ".. interviewer-guideline:: guide.rst\n\n"
+        "   .. guideline-introduction::\n\n"
+        "      Interviewer only. Share prompts and test cases "
+        "as you reach each part.\n"
+        "      See the `full guide <{source_url}>`_ for interview setup "
+        "and reference solutions.\n\n"
+    )
+    groups = textwrap.dedent(
+        text="""\
+        .. guideline-group:: Prompt
+
+           .. guideline-select:: Prompt
+
+        .. guideline-group:: FAQ
+
+           .. guideline-select:: FAQ
+              :optional:
+
+        .. guideline-group:: Signals and edge-case questions
+
+           .. guideline-select:: Follow up questions
+              :optional:
+
+           .. guideline-select:: Key considerations
+              :optional:
+              :include-heading:
+
+        .. guideline-group:: Test cases
+
+           .. guideline-select:: Test cases
+              :optional:
+
+        """
+    )
+    return (
+        prefix
+        + "".join(
+            f"   .. guideline-part:: {heading}\n\n"
+            + textwrap.indent(text=groups, prefix="      ")
+            for heading in parts
+        )
+        + "   .. guideline-after:: Evaluation\n      :optional:\n"
+    )
+
+
+def _files(*, guide: str, mapping: str, recipe: str) -> dict[str, str]:
     """Keep the source guide, composed view, and mapping in a nested
     folder.
     """
@@ -175,9 +162,7 @@ def _files(*, guide: str, mapping: str) -> dict[str, str]:
             "   topics/guide\n   topics/derived-interviewer-guideline\n"
         ),
         "topics/guide.rst": guide,
-        "topics/derived-interviewer-guideline.rst": (
-            ".. interviewer-guideline:: guide.rst\n"
-        ),
+        "topics/derived-interviewer-guideline.rst": recipe,
         "topics/derived-interviewer-guideline.yml": mapping,
     }
     if "details.rst" in guide:
@@ -220,13 +205,20 @@ def test_derived_layout_tracks_guide_and_mapping(
         "FAQ_CONTENT", _FOLLOW_UP if follow_up_parent == "FAQ" else ""
     )
     source = tmp_path / "source"
-    write_sources(source=source, files=_files(guide=guide, mapping=_MAPPING))
+    write_sources(
+        source=source,
+        files=_files(
+            guide=guide,
+            mapping=_MAPPING,
+            recipe=_default_recipe(parts=("First part", "Second part")),
+        ),
+    )
     app = make_app(
         srcdir=source,
         buildername=buildername,
         exception_on_warning=True,
         confoverrides={
-            **_configuration(part_headings=("First part", "Second part")),
+            **_configuration(),
             "hackerrank_exclude_admonitions": exclude_admonitions,
             "hackerrank_source_url": source_url,
             "hackerrank_source_suffix": ".rst",
@@ -341,14 +333,14 @@ def test_derived_layout_rejects_incomplete_or_ambiguous_sources(
     """Invalid inputs report errors instead of silently dropping a
     part.
     """
-    files = _files(guide=guide, mapping=mapping)
+    files = _files(
+        guide=guide, mapping=mapping, recipe=_default_recipe(parts=("Q1",))
+    )
     if not bool(mapping):
         del files["topics/derived-interviewer-guideline.yml"]
     source = tmp_path / "source"
     write_sources(source=source, files=files)
-    app = make_app(
-        srcdir=source, confoverrides=_configuration(part_headings=("Q1",))
-    )
+    app = make_app(srcdir=source, confoverrides=_configuration())
     app.build()
     assert message in app.warning.getvalue()
 
@@ -370,11 +362,18 @@ def test_derived_layout_allows_a_guide_without_evaluation(
     )
     if empty_evaluation:
         guide += "\nEvaluation\n----------\n\n.. warning:: No content.\n"
-    write_sources(source=source, files=_files(guide=guide, mapping=_MAPPING))
+    write_sources(
+        source=source,
+        files=_files(
+            guide=guide,
+            mapping=_MAPPING,
+            recipe=_default_recipe(parts=("Build a widget",)),
+        ),
+    )
     app = make_app(
         srcdir=source,
         exception_on_warning=True,
-        confoverrides=_configuration(part_headings=("Build a widget",)),
+        confoverrides=_configuration(),
     )
     app.build()
     html = (
@@ -385,27 +384,22 @@ def test_derived_layout_allows_a_guide_without_evaluation(
     assert "Signals and edge-case questions" not in html
 
 
-def test_layout_must_be_supplied_by_the_consumer(
-    *,
-    make_app: Callable[..., SphinxTestApp],
-    tmp_path: Path,
+def test_recipe_content_is_required(
+    *, make_app: Callable[..., SphinxTestApp], tmp_path: Path
 ) -> None:
-    """No built-in outline is selected when the consumer omits its
-    policy.
-    """
+    """Every composition uses explicit RST declarations."""
     source = tmp_path / "source"
     write_sources(
-        source=source, files=_files(guide="Guide\n=====\n", mapping=_MAPPING)
+        source=source,
+        files=_files(
+            guide="Guide\n=====\n",
+            mapping=_MAPPING,
+            recipe=".. interviewer-guideline:: guide.rst\n",
+        ),
     )
-    app = make_app(
-        srcdir=source,
-        confoverrides={
-            **_configuration(part_headings=("Unused",)),
-            "hackerrank_guideline_layout": None,
-        },
-    )
+    app = make_app(srcdir=source, confoverrides=_configuration())
     app.build()
-    assert "requires a caller-supplied layout" in app.warning.getvalue()
+    assert "Content block expected" in app.warning.getvalue()
 
 
 def test_layout_accepts_unrelated_heading_vocabulary(
@@ -421,37 +415,34 @@ def test_layout_accepts_unrelated_heading_vocabulary(
         "Widgets\n=======\n\nStage one\n---------\n\nBrief\n~~~~~\n\n"
         "Make a widget.\n\nCases\n~~~~~\n\nUse a blue widget.\n"
     )
-    write_sources(source=source, files=_files(guide=guide, mapping=_MAPPING))
+    write_sources(
+        source=source,
+        files=_files(
+            guide=guide,
+            mapping=_MAPPING,
+            recipe=textwrap.dedent(
+                text="""\
+                .. interviewer-guideline:: guide.rst
+
+                   .. guideline-part:: Stage one
+
+                      .. guideline-group:: Work
+
+                         .. guideline-select:: Brief
+
+                      .. guideline-group:: Examples
+
+                         .. guideline-select:: Cases
+                            :include-heading:
+
+                """
+            ),
+        ),
+    )
     app = make_app(
         srcdir=source,
         exception_on_warning=True,
-        confoverrides={
-            **_configuration(part_headings=("Stage one",)),
-            "hackerrank_guideline_layout": GuidelineLayout(
-                parts=(
-                    GuidelinePart(
-                        heading="Stage one",
-                        groups=(
-                            SectionGroup(
-                                title="Work",
-                                sections=(
-                                    SectionSelection(headings=("Brief",)),
-                                ),
-                            ),
-                            SectionGroup(
-                                title="Examples",
-                                sections=(
-                                    SectionSelection(
-                                        headings=("Cases",),
-                                        include_heading=True,
-                                    ),
-                                ),
-                            ),
-                        ),
-                    ),
-                )
-            ),
-        },
+        confoverrides=_configuration(),
     )
     app.build()
     html = (
@@ -470,72 +461,54 @@ def test_layout_accepts_unrelated_heading_vocabulary(
 
 
 @pytest.mark.parametrize(
-    argnames=("guide", "layout", "message"),
+    argnames=("guide", "recipe", "message"),
     argvalues=[
         (
             (
                 "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n\nQ2\n--"
                 "\n\nRenamed\n~~~~~~~\n\nTwo.\n"
             ),
-            GuidelineLayout(
-                parts=(
-                    GuidelinePart(
-                        heading="Q1",
-                        groups=(
-                            SectionGroup(
-                                title="Work",
-                                sections=(
-                                    SectionSelection(
-                                        headings=("Brief", "Briefs")
-                                    ),
-                                ),
-                            ),
-                        ),
-                    ),
-                    GuidelinePart(
-                        heading="Q2",
-                        groups=(
-                            SectionGroup(
-                                title="Work",
-                                sections=(
-                                    SectionSelection(
-                                        headings=("Brief", "Briefs")
-                                    ),
-                                ),
-                            ),
-                        ),
-                    ),
-                )
+            textwrap.dedent(
+                text="""\
+                .. interviewer-guideline:: guide.rst
+
+                   .. guideline-part:: Q1
+
+                      .. guideline-group:: Work
+
+                         .. guideline-select:: Brief
+                            :alternatives: Briefs
+
+                   .. guideline-part:: Q2
+
+                      .. guideline-group:: Work
+
+                         .. guideline-select:: Brief
+                            :alternatives: Briefs
+
+                """
             ),
             "Required selection ('Brief', 'Briefs') missing in 'Q2'",
         ),
         (
             "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n",
-            GuidelineLayout(
-                parts=(
-                    GuidelinePart(
-                        heading="Q1",
-                        groups=(
-                            SectionGroup(
-                                title="Work",
-                                sections=(
-                                    SectionSelection(headings=("Brief",)),
-                                ),
-                            ),
-                        ),
-                    ),
-                    GuidelinePart(
-                        heading="Q2",
-                        groups=(
-                            SectionGroup(
-                                title="Work",
-                                sections=(
-                                    SectionSelection(headings=("Brief",)),
-                                ),
-                            ),
-                        ),
-                    ),
-                )
+            textwrap.dedent(
+                text="""\
+                .. interviewer-guideline:: guide.rst
+
+                   .. guideline-part:: Q1
+
+                      .. guideline-group:: Work
+
+                         .. guideline-select:: Brief
+
+                   .. guideline-part:: Q2
+
+                      .. guideline-group:: Work
+
+                         .. guideline-select:: Brief
+
+                """
             ),
             "Required guide parts are missing",
         ),
@@ -544,22 +517,18 @@ def test_layout_accepts_unrelated_heading_vocabulary(
                 "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n\nBrief"
                 "s\n~~~~~~\n\nTwo.\n"
             ),
-            GuidelineLayout(
-                parts=(
-                    GuidelinePart(
-                        heading="Q1",
-                        groups=(
-                            SectionGroup(
-                                title="Work",
-                                sections=(
-                                    SectionSelection(
-                                        headings=("Brief", "Briefs")
-                                    ),
-                                ),
-                            ),
-                        ),
-                    ),
-                )
+            textwrap.dedent(
+                text="""\
+                .. interviewer-guideline:: guide.rst
+
+                   .. guideline-part:: Q1
+
+                      .. guideline-group:: Work
+
+                         .. guideline-select:: Brief
+                            :alternatives: Briefs
+
+                """
             ),
             "Ambiguous selection",
         ),
@@ -568,20 +537,17 @@ def test_layout_accepts_unrelated_heading_vocabulary(
                 "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\n"
                 ".. note:: Private content only.\n"
             ),
-            GuidelineLayout(
-                parts=(
-                    GuidelinePart(
-                        heading="Q1",
-                        groups=(
-                            SectionGroup(
-                                title="Work",
-                                sections=(
-                                    SectionSelection(headings=("Brief",)),
-                                ),
-                            ),
-                        ),
-                    ),
-                )
+            textwrap.dedent(
+                text="""\
+                .. interviewer-guideline:: guide.rst
+
+                   .. guideline-part:: Q1
+
+                      .. guideline-group:: Work
+
+                         .. guideline-select:: Brief
+
+                """
             ),
             "is empty after filtering",
         ),
@@ -590,22 +556,18 @@ def test_layout_accepts_unrelated_heading_vocabulary(
                 "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\n"
                 ".. note:: Private content only.\n"
             ),
-            GuidelineLayout(
-                parts=(
-                    GuidelinePart(
-                        heading="Q1",
-                        groups=(
-                            SectionGroup(
-                                title="Work",
-                                sections=(
-                                    SectionSelection(
-                                        headings=("Brief",), required=False
-                                    ),
-                                ),
-                            ),
-                        ),
-                    ),
-                )
+            textwrap.dedent(
+                text="""\
+                .. interviewer-guideline:: guide.rst
+
+                   .. guideline-part:: Q1
+
+                      .. guideline-group:: Work
+
+                         .. guideline-select:: Brief
+                            :optional:
+
+                """
             ),
             "has no rendered content",
         ),
@@ -614,97 +576,79 @@ def test_layout_accepts_unrelated_heading_vocabulary(
                 "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n\nQ1\n--"
                 "\n\nBrief\n~~~~~\n\nTwo.\n"
             ),
-            GuidelineLayout(
-                parts=(
-                    GuidelinePart(
-                        heading="Q1",
-                        groups=(
-                            SectionGroup(
-                                title="Work",
-                                sections=(
-                                    SectionSelection(headings=("Brief",)),
-                                ),
-                            ),
-                        ),
-                    ),
-                )
+            textwrap.dedent(
+                text="""\
+                .. interviewer-guideline:: guide.rst
+
+                   .. guideline-part:: Q1
+
+                      .. guideline-group:: Work
+
+                         .. guideline-select:: Brief
+
+                """
             ),
             "duplicate headings",
         ),
         (
             "Widgets\n=======\n\nQ1\n--\n\nQ2\n~~\n\nBrief\n^^^^^\n\nOne.\n",
-            GuidelineLayout(
-                parts=(
-                    GuidelinePart(
-                        heading="Q1",
-                        groups=(
-                            SectionGroup(
-                                title="Work",
-                                sections=(
-                                    SectionSelection(headings=("Brief",)),
-                                ),
-                            ),
-                        ),
-                    ),
-                    GuidelinePart(
-                        heading="Q2",
-                        groups=(
-                            SectionGroup(
-                                title="Work",
-                                sections=(
-                                    SectionSelection(headings=("Brief",)),
-                                ),
-                            ),
-                        ),
-                    ),
-                )
+            textwrap.dedent(
+                text="""\
+                .. interviewer-guideline:: guide.rst
+
+                   .. guideline-part:: Q1
+
+                      .. guideline-group:: Work
+
+                         .. guideline-select:: Brief
+
+                   .. guideline-part:: Q2
+
+                      .. guideline-group:: Work
+
+                         .. guideline-select:: Brief
+
+                """
             ),
             "must not be nested",
         ),
         (
             "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n",
-            GuidelineLayout(
-                parts=(
-                    GuidelinePart(
-                        heading="Q1",
-                        groups=(
-                            SectionGroup(
-                                title="Work",
-                                sections=(
-                                    SectionSelection(headings=("Brief",)),
-                                ),
-                            ),
-                            SectionGroup(
-                                title="Examples",
-                                sections=(
-                                    SectionSelection(headings=("Cases",)),
-                                ),
-                            ),
-                        ),
-                    ),
-                )
+            textwrap.dedent(
+                text="""\
+                .. interviewer-guideline:: guide.rst
+
+                   .. guideline-part:: Q1
+
+                      .. guideline-group:: Work
+
+                         .. guideline-select:: Brief
+
+                      .. guideline-group:: Examples
+
+                         .. guideline-select:: Cases
+
+                """
             ),
             "Required selection ('Cases',) missing in 'Q1'",
         ),
         *[
             (
                 "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n",
-                GuidelineLayout(
-                    parts=(
-                        GuidelinePart(
-                            heading="Q1",
-                            groups=(
-                                SectionGroup(
-                                    title="Work",
-                                    sections=(
-                                        SectionSelection(headings=("Brief",)),
-                                    ),
-                                ),
-                            ),
-                        ),
-                    ),
-                    leading_sections=(SectionSelection(headings=(heading,)),),
-                ),
+                textwrap.dedent(
+                    text="""\
+                    .. interviewer-guideline:: guide.rst
+
+                       .. guideline-before:: __EXCLUSION__
+
+                       .. guideline-part:: Q1
+
+                          .. guideline-group:: Work
+
+                             .. guideline-select:: Brief
+
+                    """
+                ).replace("__EXCLUSION__", heading),
                 "overlaps a guide part",
             )
             for heading in ("Widgets", "Q1", "Brief")
@@ -716,31 +660,29 @@ def test_completeness_contract_rejects_lost_content(
     make_app: Callable[..., SphinxTestApp],
     tmp_path: Path,
     guide: str,
-    layout: GuidelineLayout,
+    recipe: str,
     message: str,
 ) -> None:
     """Renamed, empty, or missing content cannot silently remove a
     part.
     """
     source = tmp_path / "source"
-    write_sources(source=source, files=_files(guide=guide, mapping=_MAPPING))
+    write_sources(
+        source=source,
+        files=_files(guide=guide, mapping=_MAPPING, recipe=recipe),
+    )
     app = make_app(
         srcdir=source,
-        confoverrides={
-            **_configuration(part_headings=("Unused",)),
-            "hackerrank_guideline_layout": layout,
-        },
+        confoverrides=_configuration(),
     )
     app.build()
     assert message in app.warning.getvalue()
 
 
-@pytest.mark.parametrize(argnames="layout_name", argvalues=["body", "unknown"])
-def test_named_body_layout_with_shared_sections(
+def test_explicit_body_parts_with_shared_sections(
     *,
     make_app: Callable[..., SphinxTestApp],
     tmp_path: Path,
-    layout_name: str,
 ) -> None:
     """Shared introductions and body-based stages need no category
     headings.
@@ -777,67 +719,49 @@ def test_named_body_layout_with_shared_sections(
         """
     )
 
-    layout = GuidelineLayout(
-        parts=(
-            GuidelinePart(
-                heading="Stage one",
-                groups=(
-                    SectionGroup(
-                        title="Work",
-                        sections=(SectionSelection(headings=(".",)),),
-                    ),
-                    SectionGroup(
-                        title="Questions",
-                        sections=(
-                            SectionSelection(
-                                headings=("Discussion",), required=False
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-            GuidelinePart(
-                heading="Stage two",
-                groups=(
-                    SectionGroup(
-                        title="Work",
-                        sections=(SectionSelection(headings=(".",)),),
-                    ),
-                    SectionGroup(
-                        title="Questions",
-                        sections=(
-                            SectionSelection(
-                                headings=("Discussion",), required=False
-                            ),
-                        ),
-                    ),
-                ),
-            ),
-        ),
-        leading_sections=(SectionSelection(headings=("Shared brief",)),),
-        trailing_sections=(
-            SectionSelection(headings=("Review",)),
-            SectionSelection(headings=("Absent",), required=False),
-        ),
+    recipe = textwrap.dedent(
+        text="""\
+                 .. interviewer-guideline:: guide.rst
+
+                    .. guideline-before:: Shared brief
+
+                    .. guideline-part:: Stage one
+
+                       .. guideline-group:: Work
+
+                          .. guideline-select:: .
+
+                       .. guideline-group:: Questions
+
+                          .. guideline-select:: Discussion
+                             :optional:
+
+                    .. guideline-part:: Stage two
+
+                       .. guideline-group:: Work
+
+                          .. guideline-select:: .
+
+                       .. guideline-group:: Questions
+
+                          .. guideline-select:: Discussion
+                             :optional:
+
+                    .. guideline-after:: Review
+
+                    .. guideline-after:: Absent
+                       :optional:
+
+                 """
     )
     source = tmp_path / "source"
-    files = _files(guide=guide, mapping=_MAPPING)
-    files["topics/derived-interviewer-guideline.rst"] += (
-        f"   :layout: {layout_name}\n"
-    )
+    files = _files(guide=guide, mapping=_MAPPING, recipe=recipe)
     write_sources(source=source, files=files)
     app = make_app(
         srcdir=source,
-        confoverrides={
-            **_configuration(part_headings=("Unused",)),
-            "hackerrank_guideline_layout": None,
-            "hackerrank_guideline_layouts": {"body": layout},
-        },
+        confoverrides=_configuration(),
     )
     app.build()
-    if layout_name == "unknown":
-        assert "requires a caller-supplied layout" in app.warning.getvalue()
-        return
     assert app.warning.getvalue() == ""
     html = (
         Path(app.outdir) / "topics/derived-interviewer-guideline.html"

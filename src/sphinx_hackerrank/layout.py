@@ -85,7 +85,6 @@ class GuidelineLayout:
     parts: tuple[GuidelinePart, ...]
     leading_sections: tuple[SectionSelection, ...] = ()
     trailing_sections: tuple[SectionSelection, ...] = ()
-    introduction: str = ""
 
     def __post_init__(self) -> None:
         """Validate part identities and shared content selections."""

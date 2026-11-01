@@ -8,10 +8,8 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
-from docutils.core import publish_doctree
 from sphinx.testing.util import SphinxTestApp
 
-from sphinx_hackerrank.sections import select_section
 from tests.builds import build_expected, write_sources
 
 _SECTION_SOURCE = textwrap.dedent(
@@ -55,93 +53,70 @@ _SECTION_SOURCE = textwrap.dedent(
 
 
 @pytest.mark.parametrize(
-    argnames="selector",
-    argvalues=["Q9 / Prompt", "Q1 / Missing", "Prompt", "", "#missing"],
-)
-def test_missing_or_ambiguous_sections_fail(*, selector: str) -> None:
-    """Reject selectors that do not identify exactly one section."""
-    document = publish_doctree(source=_SECTION_SOURCE)
-    with pytest.raises(
-        expected_exception=ValueError, match="Expected one guide section"
-    ):
-        _ = select_section(document=document, selector=selector)
-
-
-@pytest.mark.parametrize(
     argnames="selector", argvalues=["Q1 / Prompt", "#stable-prompt"]
 )
 @pytest.mark.parametrize(argnames="include_heading", argvalues=[False, True])
-@pytest.mark.parametrize(
-    argnames="exclusions",
-    argvalues=[(), ("Details",), ("#details",), ("Details", "Details")],
-)
-def test_section_matches_native_rst(
+@pytest.mark.parametrize(argnames="separate_details", argvalues=[False, True])
+def test_recipe_selections_match_native_rst(
     *,
     make_app: Callable[..., SphinxTestApp],
     tmp_path: Path,
     selector: str,
     include_heading: bool,
-    exclusions: tuple[str, ...],
+    separate_details: bool,
 ) -> None:
-    """Selected sections render like independently written native RST."""
-    index = textwrap.dedent(
-        text="""\
-        Index
-        =====
-
-        .. toctree::
-
-           guide
-
-        """
+    """Paths, labels, and automatic exclusions match native RST output."""
+    index = (
+        "Index\n=====\n\n.. toctree::\n\n"
+        "   guide\n   view-interviewer-guideline\n"
     )
-    expanded = textwrap.dedent(
-        text="""\
-        First prompt.
-
-        See `Details <guide.html#details>`_.
-        """
-    )
-    if not bool(exclusions):
-        expanded += "\n.. rubric:: Details\n\nNested details.\n"
+    body = "First prompt.\n\nSee `Details <guide.html#details>`_.\n"
     if include_heading:
-        expanded = ".. rubric:: Prompt\n\n" + expanded
-    if bool(exclusions):
-        expanded += "\nNested details.\n"
+        body = ".. rubric:: Prompt\n\n" + body
+    if not separate_details:
+        body += "\n.. rubric:: Details\n\nNested details.\n"
+    native = (
+        "Guide: HackerRank Interviewer Guidelines\n"
+        "========================================\n\n"
+        ".. container:: hr-interviewer-guideline "
+        "interviewer-guideline-python\n\n"
+        "   .. rubric:: Guide: Python\n\n"
+        "   .. collapse:: Q1\n\n"
+        "      .. collapse:: Work\n\n"
+        + textwrap.indent(text=body, prefix="         ")
+    )
+    recipe = (
+        ".. interviewer-guideline:: guide.rst\n\n"
+        "   .. guideline-part:: Q1\n\n"
+        "      .. guideline-group:: Work\n\n"
+        f"         .. guideline-select:: {selector}\n"
+    )
+    if include_heading:
+        recipe += "            :include-heading:\n"
+    if separate_details:
+        recipe += (
+            "\n      .. guideline-group:: Details\n\n"
+            "         .. guideline-select:: Prompt / Details\n"
+        )
+        native += "\n      .. collapse:: Details\n\n         Nested details.\n"
+    files = {
+        "index.rst": index,
+        "guide.rst": _SECTION_SOURCE,
+        "view-interviewer-guideline.rst": native,
+    }
     expected = build_expected(
         make_app=make_app,
         source=tmp_path / "expected",
-        files={"index.rst": index + expanded, "guide.rst": _SECTION_SOURCE},
+        files=files,
         confoverrides={},
-        docnames=["index", "guide"],
+        docnames=["index", "guide", "view-interviewer-guideline"],
     )
-    directive = textwrap.dedent(
-        text=f"""\
-        .. interviewer-guideline-section:: guide.rst
-           :section: {selector}
-           :language: python
-        """
+    files["view-interviewer-guideline.rst"] = recipe
+    files["view-interviewer-guideline.yml"] = (
+        "version: 1\nquestions:\n  - language: python\n    name: Example\n"
     )
-    if include_heading:
-        directive += "   :include-heading:\n"
-    if bool(exclusions):
-        directive += (
-            "   :exclude-sections: "
-            + "\n                      ".join(exclusions)
-            + "\n\n"
-        )
-        directive += textwrap.dedent(
-            text="""\
-            .. interviewer-guideline-section:: guide.rst
-               :section: Q1 / Prompt / Details
-               :language: python
-            """
-        )
     source = tmp_path / "actual"
-    write_sources(
-        source=source,
-        files={"index.rst": index + directive, "guide.rst": _SECTION_SOURCE},
-    )
+    write_sources(source=source, files=files)
     app = make_app(
         srcdir=source,
         exception_on_warning=True,
@@ -158,85 +133,55 @@ def test_section_matches_native_rst(
 
 
 @pytest.mark.parametrize(
-    argnames=("filename", "options", "message"),
+    argnames=("filename", "language", "message"),
     argvalues=[
-        ("../outside.rst", "", "within the source directory"),
-        ("guide.txt", "", "within the source directory"),
-        ("index.rst", "", "cannot include itself"),
-        ("guide.rst", "", "requires :section: and :language:"),
+        ("../outside.rst", "python", "within the source directory"),
+        ("guide.txt", "python", "within the source directory"),
+        ("view-interviewer-guideline.rst", "python", "cannot include itself"),
         (
             "guide.rst",
-            ":section: Q1 / Prompt\n:language: unknown",
+            "unknown",
             "Expected one Interviewer Guideline language config",
-        ),
-        ("guide.rst", ":section: Q9 / Prompt\n:language: python", "found 0"),
-        ("guide.rst", ":section: Prompt\n:language: python", "found 2"),
-        (
-            "guide.rst",
-            (
-                ":section: Q1 / Prompt\n:language: python\n"
-                ":exclude-sections: Missing"
-            ),
-            "found 0",
-        ),
-        (
-            "guide.rst",
-            (
-                ":section: Q1 / Prompt\n:language: python\n"
-                ":exclude-sections: #stable-prompt"
-            ),
-            "Cannot exclude the selected section itself",
         ),
     ],
 )
-def test_invalid_section_directives_report_errors(
+def test_invalid_recipe_sources_report_errors(
     *,
     make_app: Callable[..., SphinxTestApp],
     tmp_path: Path,
     filename: str,
-    options: str,
+    language: str,
     message: str,
 ) -> None:
-    """Report invalid source paths, options, and section selections."""
+    """The RST entry point validates source paths and mapped languages."""
     source = tmp_path / "source"
-    source.mkdir()
-    (source / "conf.py").touch()
-    _ = (source / "guide.rst").write_text(
-        data=_SECTION_SOURCE, encoding="utf-8"
-    )
-    _ = (source / "index.rst").write_text(
-        data=(
-            textwrap.dedent(
-                text=f"""\
-                Index
-                =====
-
-                .. toctree::
-
-                   guide
-
-                .. interviewer-guideline-section:: {filename}
-                """
-            )
-            + "\n".join(f"   {option}" for option in options.splitlines())
-            + "\n"
-        ),
-        encoding="utf-8",
+    write_sources(
+        source=source,
+        files={
+            "index.rst": (
+                "Index\n=====\n\n.. toctree::\n\n"
+                "   guide\n   view-interviewer-guideline\n"
+            ),
+            "guide.rst": _SECTION_SOURCE,
+            "view-interviewer-guideline.rst": (
+                f".. interviewer-guideline:: {filename}\n\n"
+                "   .. guideline-part:: Q1\n\n"
+                "      .. guideline-group:: Work\n\n"
+                "         .. guideline-select:: Prompt\n"
+            ),
+            "view-interviewer-guideline.yml": (
+                f"version: 1\nquestions:\n  - language: {language}\n"
+                "    name: Example\n"
+            ),
+        },
     )
     app = make_app(
         srcdir=source,
         confoverrides={
             "extensions": ["sphinx_hackerrank"],
-            "jinja2_contexts": {
-                "languages": {"original": True},
-                "interviewer_guidelines": {
-                    "language_configs": [
-                        {"language": "Python", "pygments_lexer": "python"},
-                    ],
-                },
-            },
+            "jinja2_contexts": {"languages": {"original": True}},
             "hackerrank_languages": {
-                "python": {"name": "Python", "context": {}},
+                "python": {"name": "Python", "context": {}}
             },
         },
     )
@@ -374,15 +319,14 @@ def test_incremental_build_refreshes_the_view(
     classes = "hr-interviewer-guideline interviewer-guideline-python"
     _ = (source / "guide-interviewer-guideline.rst").write_text(
         data=textwrap.dedent(
-            text=f"""\
-            Interviewer Guideline
-            =====================
+            text="""\
+            .. interviewer-guideline:: guide.rst
 
-            .. container:: {classes}
+               .. guideline-part:: Prompt
 
-               .. interviewer-guideline-section:: guide.rst
-                  :section: Prompt
-                  :language: python
+                  .. guideline-group:: Instructions
+
+                     .. guideline-select:: .
             """
         ),
         encoding="utf-8",
@@ -406,22 +350,28 @@ def test_incremental_build_refreshes_the_view(
     audience = "HackerRank" if buildername == "hackerrank" else "Website"
     native_guideline = textwrap.dedent(
         text=f"""\
-        Interviewer Guideline
-        =====================
+        Guide: HackerRank Interviewer Guidelines
+        ========================================
 
         .. container:: {classes}
 
-           Original wording.
+           .. rubric:: Guide: Python
 
-           Shared guide text.
+           .. collapse:: Prompt
 
-           .. code-block:: text
+              .. collapse:: Instructions
 
-              .. note:: Keep this literal example.
+                 Original wording.
 
-           {audience}-specific content.
+                 Shared guide text.
 
-           Shared HTML content.
+                 .. code-block:: text
+
+                    .. note:: Keep this literal example.
+
+                 {audience}-specific content.
+
+                 Shared HTML content.
         """
     )
     native_guide = guide.read_text(encoding="utf-8")
@@ -493,7 +443,6 @@ def test_incremental_build_refreshes_the_view(
         == expected_languages
     )
     tree = app.env.get_doctree(docname="guide-interviewer-guideline")
-    assert "_interviewer_guideline_guides" not in tree.attributes
     assert all(node.document is tree for node in tree.findall())
     _ = guide.write_text(
         data=guide.read_text(encoding="utf-8").replace(
