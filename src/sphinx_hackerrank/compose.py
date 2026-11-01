@@ -1,15 +1,17 @@
 """Apply a caller-defined layout to the maintained guide tree."""
 
 import posixpath
+import re
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, ClassVar, override
 
 from docutils import nodes
+from docutils.parsers.rst import directives
 from docutils.statemachine import StringList
 from sphinx_toolbox.collapse import CollapseNode, CollapseSummaryNode
 
-from sphinx_hackerrank.layout import GuidelineLayout
+from sphinx_hackerrank.layout import GuidelineLayout, SectionSelection
 from sphinx_hackerrank.sections import (
     InterviewerGuidelineSection,
     section_content,
@@ -42,30 +44,63 @@ def _relative_section_path(
     return " / ".join(reversed(path))
 
 
+def _scope_title(*, scope: nodes.document | nodes.section) -> str:
+    """Describe a source scope in a validation error."""
+    return next(scope.findall(condition=nodes.title)).astext()
+
+
+def _resolve_selection(
+    *,
+    scope: nodes.document | nodes.section,
+    selection: SectionSelection,
+) -> nodes.section | None:
+    """Find exactly one configured alternative without guessing or merging."""
+    if selection.headings == (".",):
+        assert isinstance(scope, nodes.section)
+        return scope
+    matches = [
+        section
+        for section in scope.findall(condition=nodes.section)
+        if section is not scope and section[0].astext() in selection.headings
+    ]
+    if len(matches) > 1:
+        message = (
+            f"Ambiguous selection {selection.headings!r} "
+            f"in {_scope_title(scope=scope)!r}"
+        )
+        raise ValueError(message)
+    if bool(matches):
+        return matches[0]
+    if selection.required:
+        message = (
+            f"Required selection {selection.headings!r} "
+            f"missing in {_scope_title(scope=scope)!r}"
+        )
+        raise ValueError(message)
+    return None
+
+
 def _selected_sections(
-    *, part: nodes.section, layout: GuidelineLayout
-) -> dict[str, nodes.section]:
-    """Find supported categories regardless of their nesting in a part."""
-    titles = {title for group in layout.groups for title in group.sections}
-    found: dict[str, nodes.section] = {}
-    for section in part.findall(condition=nodes.section):
-        title = section[0].astext()
-        if title not in titles:
-            continue
-        if title in found:
-            message = (
-                f"Ambiguous {title!r} section in guide part "
-                f"{part[0].astext()!r}"
-            )
-            raise ValueError(message)
-        found[title] = section
+    *,
+    part: nodes.section,
+    layout: GuidelineLayout,
+) -> dict[SectionSelection, nodes.section]:
+    """Resolve configured selections at any depth beneath a matched
+    part.
+    """
+    found: dict[SectionSelection, nodes.section] = {}
+    for group in layout.groups:
+        for selection in group.sections:
+            section = _resolve_selection(scope=part, selection=selection)
+            if section is not None:
+                found[selection] = section
     return found
 
 
 def _category_content(
     *,
     section: nodes.section,
-    selected: dict[str, nodes.section],
+    selected: dict[SectionSelection, nodes.section],
     guide: str,
     language: str,
     exclude_admonitions: bool,
@@ -112,6 +147,33 @@ def _category_content(
     return container.children
 
 
+def _selection_content(
+    *,
+    section: nodes.section,
+    selection: SectionSelection,
+    selected: dict[SectionSelection, nodes.section],
+    guide: str,
+    language: str,
+    exclude_admonitions: bool,
+) -> list[nodes.Node]:
+    """Require meaningful content for mandatory selections after filtering."""
+    content = _category_content(
+        section=section,
+        selected=selected,
+        guide=guide,
+        language=language,
+        exclude_admonitions=exclude_admonitions,
+        include_heading=selection.include_heading,
+    )
+    if selection.required and not bool(content):
+        message = (
+            f"Required selection {selection.headings!r} "
+            "is empty after filtering"
+        )
+        raise ValueError(message)
+    return content
+
+
 def _part_content(
     *,
     part: nodes.section,
@@ -119,27 +181,118 @@ def _part_content(
     language: str,
     exclude_admonitions: bool,
     layout: GuidelineLayout,
-) -> CollapseNode:
-    """Arrange existing sections in the order supplied by the consumer."""
+) -> tuple[CollapseNode, set[str]]:
+    """Render configured groups and return which contain actual
+    content.
+    """
     selected = _selected_sections(part=part, layout=layout)
     categories: list[nodes.Node] = []
+    rendered: set[str] = set()
     for group in layout.groups:
         content: list[nodes.Node] = []
-        for name in group.sections:
-            if name in selected:
+        for selection in group.sections:
+            if selection in selected:
                 content.extend(
-                    _category_content(
-                        section=selected[name],
+                    _selection_content(
+                        section=selected[selection],
+                        selection=selection,
                         selected=selected,
                         guide=guide,
                         language=language,
                         exclude_admonitions=exclude_admonitions,
-                        include_heading=name in group.include_headings,
                     )
                 )
         if bool(content):
             categories.append(_disclosure(title=group.title, content=content))
-    return _disclosure(title=part[0].astext(), content=categories)
+            rendered.add(group.title)
+    if not bool(categories):
+        message = f"Guide part {part[0].astext()!r} has no rendered content"
+        raise ValueError(message)
+    return _disclosure(title=part[0].astext(), content=categories), rendered
+
+
+def _find_parts(
+    *, document: nodes.document, layout: GuidelineLayout
+) -> list[nodes.section]:
+    """Identify parts by their own headings, independently of body
+    selections.
+    """
+    parts = [
+        section
+        for section in document.findall(condition=nodes.section)
+        if re.fullmatch(
+            pattern=layout.part_pattern, string=section[0].astext()
+        )
+        is not None
+    ]
+    if len(parts) < layout.minimum_parts:
+        message = (
+            f"Expected at least {layout.minimum_parts} guide parts matching "
+            f"{layout.part_pattern!r}, found {len(parts)}"
+        )
+        raise ValueError(message)
+    titles = [part[0].astext() for part in parts]
+    if len(titles) != len(set(titles)):
+        message = "Matched guide parts have duplicate headings"
+        raise ValueError(message)
+    identities = {id(part) for part in parts}
+    for part in parts:
+        parent = part.parent
+        while parent is not None:
+            if id(parent) in identities:
+                message = (
+                    "Matched guide parts must not be nested within each other"
+                )
+                raise ValueError(message)
+            parent = parent.parent
+    return parts
+
+
+def _outer_content(
+    *,
+    document: nodes.document,
+    selections: tuple[SectionSelection, ...],
+    parts: list[nodes.section],
+    guide: str,
+    language: str,
+    exclude_admonitions: bool,
+) -> list[nodes.Node]:
+    """Render leading or closing selections without duplicating part
+    content.
+    """
+    content: list[nodes.Node] = []
+    for selection in selections:
+        section = _resolve_selection(scope=document, selection=selection)
+        if section is None:
+            continue
+        descendants = {
+            id(node) for node in section.findall(condition=nodes.section)
+        }
+        if any(
+            id(part) in descendants
+            or any(
+                node is section
+                for node in part.findall(condition=nodes.section)
+            )
+            for part in parts
+        ):
+            message = (
+                f"Outer selection {selection.headings!r} overlaps a guide part"
+            )
+            raise ValueError(message)
+        body = _selection_content(
+            section=section,
+            selection=selection,
+            selected={},
+            guide=guide,
+            language=language,
+            exclude_admonitions=exclude_admonitions,
+        )
+        if bool(body):
+            content.append(
+                _disclosure(title=section[0].astext(), content=body)
+            )
+    return content
 
 
 def _guide_content(
@@ -150,51 +303,61 @@ def _guide_content(
     exclude_admonitions: bool,
     layout: GuidelineLayout,
 ) -> list[nodes.Node]:
-    """Find parts and closing sections using caller-supplied headings."""
-    parts = [
-        section
-        for section in document.findall(condition=nodes.section)
-        if any(
-            isinstance(child, nodes.section)
-            and child[0].astext() == layout.part_marker
-            for child in section.children
-        )
-    ]
-    if not bool(parts):
-        message = (
-            f"No guide parts with a {layout.part_marker!r} subsection found"
-        )
-        raise ValueError(message)
-    content: list[nodes.Node] = [
-        _part_content(
+    """Validate all matched parts and apply consumer-owned completeness
+    rules.
+    """
+    parts = _find_parts(document=document, layout=layout)
+    content = _outer_content(
+        document=document,
+        selections=layout.leading_sections,
+        parts=parts,
+        guide=guide,
+        language=language,
+        exclude_admonitions=exclude_admonitions,
+    )
+    rendered: dict[str, set[str]] = {}
+    for part in parts:
+        disclosure, groups = _part_content(
             part=part,
             guide=guide,
             language=language,
             exclude_admonitions=exclude_admonitions,
             layout=layout,
         )
-        for part in parts
-    ]
-    for heading in layout.trailing_sections:
+        content.append(disclosure)
+        rendered[part[0].astext()] = groups
+    for requirement in layout.required_groups:
         matches = [
-            section
-            for section in document.findall(condition=nodes.section)
-            if section[0].astext() == heading
+            title
+            for title in rendered
+            if re.fullmatch(pattern=requirement.part_pattern, string=title)
+            is not None
         ]
-        if len(matches) > 1:
-            message = f"Expected at most one trailing section for {heading!r}"
-            raise ValueError(message)
-        if bool(matches):
-            trailing = _category_content(
-                section=matches[0],
-                selected={},
-                guide=guide,
-                language=language,
-                exclude_admonitions=exclude_admonitions,
-                include_heading=False,
+        if len(matches) < requirement.minimum_parts:
+            message = (
+                f"Group requirement {requirement.part_pattern!r} "
+                "expected at least "
+                f"{requirement.minimum_parts} parts, found {len(matches)}"
             )
-            if bool(trailing):
-                content.append(_disclosure(title=heading, content=trailing))
+            raise ValueError(message)
+        for title in matches:
+            missing = set(requirement.groups) - rendered[title]
+            if bool(missing):
+                message = (
+                    f"Required groups {sorted(missing)!r} "
+                    f"missing from guide part {title!r}"
+                )
+                raise ValueError(message)
+    content.extend(
+        _outer_content(
+            document=document,
+            selections=layout.trailing_sections,
+            parts=parts,
+            guide=guide,
+            language=language,
+            exclude_admonitions=exclude_admonitions,
+        )
+    )
     return content
 
 
@@ -204,16 +367,24 @@ class InterviewerGuideline(InterviewerGuidelineSection):
     """
 
     # Docutils defines option converter return values as Any.
-    option_spec: ClassVar[dict[str, Callable[[str], Any]] | None] = {}  # pyrefly: ignore[explicit-any]
+    option_spec: ClassVar[dict[str, Callable[[str], Any]] | None] = {  # pyrefly: ignore[explicit-any]
+        "layout": directives.unchanged_required
+    }
 
     @override
     def run(self) -> list[nodes.Node]:
         """Derive the mapped language views from the source guide."""
-        layout = self.config.hackerrank_guideline_layout
+        if "layout" in self.options:
+            layout = self.config.hackerrank_guideline_layouts.get(
+                self.options["layout"]
+            )
+        else:
+            layout = self.config.hackerrank_guideline_layout
         if not isinstance(layout, GuidelineLayout):
             raise self.error(
                 message="interviewer-guideline requires a "
-                "caller-supplied hackerrank_guideline_layout"
+                "caller-supplied layout (set hackerrank_guideline_layout "
+                "or choose a configured :layout:)"
             )
         source_path = self._source_path()
         source_root = Path(self.env.srcdir).resolve()
@@ -248,6 +419,9 @@ class InterviewerGuideline(InterviewerGuidelineSection):
                     title.astext() + ": HackerRank Interviewer Guidelines"
                 )
                 root += nodes.title("", title_text)
+                root["names"].append(
+                    nodes.fully_normalize_name(name=title_text)
+                )
                 self.state.document.note_implicit_target(target=root)
             container = nodes.container(
                 classes=[

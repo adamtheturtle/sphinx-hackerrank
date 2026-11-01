@@ -2,6 +2,7 @@
 mappings.
 """
 
+import textwrap
 from collections.abc import Callable
 from pathlib import Path
 
@@ -9,7 +10,12 @@ import pytest
 from bs4 import BeautifulSoup
 from sphinx.testing.util import SphinxTestApp
 
-from sphinx_hackerrank.layout import GuidelineLayout, SectionGroup
+from sphinx_hackerrank.layout import (
+    GroupRequirement,
+    GuidelineLayout,
+    SectionGroup,
+    SectionSelection,
+)
 from tests.builds import write_sources
 
 _MAPPING = """\
@@ -92,18 +98,45 @@ def _configuration() -> dict[str, object]:
     return {
         "extensions": ["sphinx_hackerrank"],
         "hackerrank_guideline_layout": GuidelineLayout(
-            part_marker="Prompt",
+            part_pattern=(
+                r"(?:Q[1-9]\d*|First part|Second part|New part|Build a widget)"
+            ),
             groups=(
-                SectionGroup(title="Prompt", sections=("Prompt",)),
-                SectionGroup(title="FAQ", sections=("FAQ",)),
+                SectionGroup(
+                    title="Prompt",
+                    sections=(SectionSelection(headings=("Prompt",)),),
+                ),
+                SectionGroup(
+                    title="FAQ",
+                    sections=(
+                        SectionSelection(headings=("FAQ",), required=False),
+                    ),
+                ),
                 SectionGroup(
                     title="Signals and edge-case questions",
-                    sections=("Follow up questions", "Key considerations"),
-                    include_headings=("Key considerations",),
+                    sections=(
+                        SectionSelection(
+                            headings=("Follow up questions",), required=False
+                        ),
+                        SectionSelection(
+                            headings=("Key considerations",),
+                            required=False,
+                            include_heading=True,
+                        ),
+                    ),
                 ),
-                SectionGroup(title="Test cases", sections=("Test cases",)),
+                SectionGroup(
+                    title="Test cases",
+                    sections=(
+                        SectionSelection(
+                            headings=("Test cases",), required=False
+                        ),
+                    ),
+                ),
             ),
-            trailing_sections=("Evaluation",),
+            trailing_sections=(
+                SectionSelection(headings=("Evaluation",), required=False),
+            ),
             introduction=(
                 "Interviewer only. "
                 "Share prompts and test cases as you reach each part. See the "
@@ -268,16 +301,16 @@ def test_derived_layout_tracks_guide_and_mapping(
     argvalues=[
         ("Widgets\n=======\n", "", "requires an adjacent language mapping"),
         ("No headings here.\n", _MAPPING, "requires a guide title"),
-        ("Widgets\n=======\n\nNo parts.\n", _MAPPING, "No guide parts"),
+        ("Widgets\n=======\n\nNo parts.\n", _MAPPING, "Expected at least"),
         (
             "Widgets\n=======\n\nQ1\n--\n\nPrompt\n~~~~~~\n\nHi.\n\nFAQ\n~~~\n\nOne.\n\nFAQ\n~~~\n\nTwo.\n",
             _MAPPING,
-            "Ambiguous 'FAQ'",
+            "Ambiguous selection",
         ),
         (
             "Widgets\n=======\n\nQ1\n--\n\nPrompt\n~~~~~~\n\nHi.\n\nEvaluation\n----------\n\nOne.\n\nEvaluation\n----------\n\nTwo.\n",
             _MAPPING,
-            "at most one trailing section",
+            "Ambiguous selection",
         ),
     ],
 )
@@ -353,10 +386,7 @@ def test_layout_must_be_supplied_by_the_consumer(
         },
     )
     app.build()
-    assert (
-        "requires a caller-supplied hackerrank_guideline_layout"
-        in app.warning.getvalue()
-    )
+    assert "requires a caller-supplied layout" in app.warning.getvalue()
 
 
 def test_layout_accepts_unrelated_heading_vocabulary(
@@ -379,13 +409,19 @@ def test_layout_accepts_unrelated_heading_vocabulary(
         confoverrides={
             **_configuration(),
             "hackerrank_guideline_layout": GuidelineLayout(
-                part_marker="Brief",
+                part_pattern=r"Stage .*",
                 groups=(
-                    SectionGroup(title="Work", sections=("Brief",)),
+                    SectionGroup(
+                        title="Work",
+                        sections=(SectionSelection(headings=("Brief",)),),
+                    ),
                     SectionGroup(
                         title="Examples",
-                        sections=("Cases",),
-                        include_headings=("Cases",),
+                        sections=(
+                            SectionSelection(
+                                headings=("Cases",), include_heading=True
+                            ),
+                        ),
                     ),
                 ),
             ),
@@ -405,3 +441,301 @@ def test_layout_accepts_unrelated_heading_vocabulary(
         ] == ["Work", "Examples"]
         assert "Use a blue widget." in container.get_text()
         assert "See the" not in container.get_text()
+
+
+@pytest.mark.parametrize(
+    argnames=("guide", "layout", "message"),
+    argvalues=[
+        (
+            "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n\nQ2\n--\n\nRenamed\n~~~~~~~\n\nTwo.\n",
+            GuidelineLayout(
+                part_pattern=r"Q\d",
+                minimum_parts=2,
+                groups=(
+                    SectionGroup(
+                        title="Work",
+                        sections=(
+                            SectionSelection(headings=("Brief", "Briefs")),
+                        ),
+                    ),
+                ),
+            ),
+            "Required selection ('Brief', 'Briefs') missing in 'Q2'",
+        ),
+        (
+            "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n",
+            GuidelineLayout(
+                part_pattern=r"Q\d",
+                minimum_parts=2,
+                groups=(
+                    SectionGroup(
+                        title="Work",
+                        sections=(SectionSelection(headings=("Brief",)),),
+                    ),
+                ),
+            ),
+            "Expected at least 2 guide parts",
+        ),
+        (
+            "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n\nBriefs\n~~~~~~\n\nTwo.\n",
+            GuidelineLayout(
+                part_pattern=r"Q\d",
+                groups=(
+                    SectionGroup(
+                        title="Work",
+                        sections=(
+                            SectionSelection(headings=("Brief", "Briefs")),
+                        ),
+                    ),
+                ),
+            ),
+            "Ambiguous selection",
+        ),
+        (
+            (
+                "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\n"
+                ".. note:: Private content only.\n"
+            ),
+            GuidelineLayout(
+                part_pattern=r"Q\d",
+                groups=(
+                    SectionGroup(
+                        title="Work",
+                        sections=(SectionSelection(headings=("Brief",)),),
+                    ),
+                ),
+            ),
+            "is empty after filtering",
+        ),
+        (
+            (
+                "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\n"
+                ".. note:: Private content only.\n"
+            ),
+            GuidelineLayout(
+                part_pattern=r"Q\d",
+                groups=(
+                    SectionGroup(
+                        title="Work",
+                        sections=(
+                            SectionSelection(
+                                headings=("Brief",), required=False
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+            "has no rendered content",
+        ),
+        (
+            "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n\nQ1\n--\n\nBrief\n~~~~~\n\nTwo.\n",
+            GuidelineLayout(
+                part_pattern=r"Q\d",
+                groups=(
+                    SectionGroup(
+                        title="Work",
+                        sections=(SectionSelection(headings=("Brief",)),),
+                    ),
+                ),
+            ),
+            "duplicate headings",
+        ),
+        (
+            "Widgets\n=======\n\nQ1\n--\n\nQ2\n~~\n\nBrief\n^^^^^\n\nOne.\n",
+            GuidelineLayout(
+                part_pattern=r"Q\d",
+                groups=(
+                    SectionGroup(
+                        title="Work",
+                        sections=(SectionSelection(headings=("Brief",)),),
+                    ),
+                ),
+            ),
+            "must not be nested",
+        ),
+        (
+            "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n",
+            GuidelineLayout(
+                part_pattern=r"Q\d",
+                groups=(
+                    SectionGroup(
+                        title="Work",
+                        sections=(SectionSelection(headings=("Brief",)),),
+                    ),
+                    SectionGroup(
+                        title="Examples",
+                        sections=(
+                            SectionSelection(
+                                headings=("Cases",), required=False
+                            ),
+                        ),
+                    ),
+                ),
+                required_groups=(
+                    GroupRequirement(part_pattern=r"Q1", groups=("Examples",)),
+                ),
+            ),
+            "Required groups ['Examples'] missing from guide part 'Q1'",
+        ),
+        (
+            "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n",
+            GuidelineLayout(
+                part_pattern=r"Q\d",
+                groups=(
+                    SectionGroup(
+                        title="Work",
+                        sections=(SectionSelection(headings=("Brief",)),),
+                    ),
+                ),
+                required_groups=(
+                    GroupRequirement(
+                        part_pattern=r"Q[12]",
+                        groups=("Work",),
+                        minimum_parts=2,
+                    ),
+                ),
+            ),
+            "Group requirement 'Q[12]' expected at least 2 parts",
+        ),
+        *[
+            (
+                "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n",
+                GuidelineLayout(
+                    part_pattern=r"Q\d",
+                    groups=(
+                        SectionGroup(
+                            title="Work",
+                            sections=(SectionSelection(headings=("Brief",)),),
+                        ),
+                    ),
+                    leading_sections=(SectionSelection(headings=(heading,)),),
+                ),
+                "overlaps a guide part",
+            )
+            for heading in ("Widgets", "Q1", "Brief")
+        ],
+    ],
+)
+def test_completeness_contract_rejects_lost_content(
+    *,
+    make_app: Callable[..., SphinxTestApp],
+    tmp_path: Path,
+    guide: str,
+    layout: GuidelineLayout,
+    message: str,
+) -> None:
+    """Renamed, empty, or missing content cannot silently remove a
+    part.
+    """
+    source = tmp_path / "source"
+    write_sources(source=source, files=_files(guide=guide, mapping=_MAPPING))
+    app = make_app(
+        srcdir=source,
+        confoverrides={
+            **_configuration(),
+            "hackerrank_guideline_layout": layout,
+        },
+    )
+    app.build()
+    assert message in app.warning.getvalue()
+
+
+@pytest.mark.parametrize(argnames="layout_name", argvalues=["body", "unknown"])
+def test_named_body_layout_with_shared_sections(
+    *,
+    make_app: Callable[..., SphinxTestApp],
+    tmp_path: Path,
+    layout_name: str,
+) -> None:
+    """Shared introductions and body-based stages need no category
+    headings.
+    """
+    guide = textwrap.dedent(
+        text="""\
+        Widgets
+        =======
+
+        Shared brief
+        ------------
+
+        Build something useful.
+
+        Stage one
+        ---------
+
+        Make the first version.
+
+        Discussion
+        ~~~~~~~~~~
+
+        What would you improve?
+
+        Stage two
+        ---------
+
+        Discuss the next version.
+
+        Review
+        ------
+
+        Explain your decisions.
+        """
+    )
+
+    layout = GuidelineLayout(
+        part_pattern=r"Stage .*",
+        minimum_parts=2,
+        leading_sections=(SectionSelection(headings=("Shared brief",)),),
+        groups=(
+            SectionGroup(
+                title="Work", sections=(SectionSelection(headings=(".",)),)
+            ),
+            SectionGroup(
+                title="Questions",
+                sections=(
+                    SectionSelection(headings=("Discussion",), required=False),
+                ),
+            ),
+        ),
+        trailing_sections=(
+            SectionSelection(headings=("Review",)),
+            SectionSelection(headings=("Absent",), required=False),
+        ),
+        required_groups=(
+            GroupRequirement(
+                part_pattern=r"Stage .*", groups=("Work",), minimum_parts=2
+            ),
+        ),
+    )
+    source = tmp_path / "source"
+    files = _files(guide=guide, mapping=_MAPPING)
+    files["topics/derived-interviewer-guideline.rst"] += (
+        f"   :layout: {layout_name}\n"
+    )
+    write_sources(source=source, files=files)
+    app = make_app(
+        srcdir=source,
+        confoverrides={
+            **_configuration(),
+            "hackerrank_guideline_layout": None,
+            "hackerrank_guideline_layouts": {"body": layout},
+        },
+    )
+    app.build()
+    if layout_name == "unknown":
+        assert "requires a caller-supplied layout" in app.warning.getvalue()
+        return
+    assert app.warning.getvalue() == ""
+    html = (
+        Path(app.outdir) / "topics/derived-interviewer-guideline.html"
+    ).read_text()
+    soup = BeautifulSoup(markup=html, features="html.parser")
+    for container in soup.select(selector=".hr-interviewer-guideline"):
+        assert [
+            summary.get_text()
+            for summary in container.select(
+                selector=":scope > details > summary"
+            )
+        ] == ["Shared brief", "Stage one", "Stage two", "Review"]
+        assert container.get_text().count("What would you improve?") == 1
+        assert "Discuss the next version." in container.get_text()

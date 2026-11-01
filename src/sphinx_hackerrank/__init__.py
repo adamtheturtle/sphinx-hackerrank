@@ -80,6 +80,12 @@ def setup(app: Sphinx) -> dict[str, object]:
         rebuild="env",
         types=(GuidelineLayout, type(None)),
     )
+    app.add_config_value(
+        name="hackerrank_guideline_layouts",
+        default={},
+        rebuild="env",
+        types=dict,
+    )
     app.add_builder(builder=HackerRankBuilder)
     app.add_directive(
         name="interviewer-guideline-section", cls=InterviewerGuidelineSection
