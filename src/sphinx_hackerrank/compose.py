@@ -1,25 +1,13 @@
 """Apply a caller-defined layout to the maintained guide tree."""
 
 import posixpath
-from copy import copy
 from pathlib import Path
 from typing import override
 
 from docutils import nodes
-from docutils.parsers.rst import Parser
 from docutils.statemachine import StringList
-from docutils.transforms.references import (
-    AnonymousHyperlinks,
-    DanglingReferences,
-    ExternalTargets,
-    IndirectHyperlinks,
-    InternalTargets,
-    PropagateTargets,
-    Substitutions,
-)
-from docutils.utils import new_document
-from sphinx.transforms import DefaultSubstitutions
 from sphinx.util.docutils import SphinxDirective
+from sphinx_section_include import find_sections, read_document, resolve_source
 from sphinx_toolbox.collapse import CollapseNode, CollapseSummaryNode
 
 from sphinx_hackerrank.layout import (
@@ -28,10 +16,7 @@ from sphinx_hackerrank.layout import (
     SectionSelection,
 )
 from sphinx_hackerrank.recipe import parse_recipe
-from sphinx_hackerrank.sections import (
-    find_sections,
-    section_content,
-)
+from sphinx_hackerrank.sections import section_content
 from sphinx_hackerrank.targets import load_targets
 
 
@@ -363,9 +348,11 @@ class InterviewerGuideline(SphinxDirective):
         self.assert_has_content()
         try:
             layout, introduction = parse_recipe(directive=self)
+            source_path = resolve_source(
+                directive=self, source=self.arguments[0]
+            )
         except (TypeError, ValueError) as error:
             raise self.error(message=str(object=error)) from error
-        source_path = self._source_path()
         source_root = Path(self.env.srcdir).resolve()
         guide = (
             source_path.relative_to(source_root)
@@ -385,7 +372,7 @@ class InterviewerGuideline(SphinxDirective):
         root = nodes.section()
         for target in targets:
             document, language = self._guide_document(
-                source_path=source_path, language_key=target.language
+                language_key=target.language
             )
             title = next(document.findall(condition=nodes.title), None)
             if title is None:
@@ -429,33 +416,10 @@ class InterviewerGuideline(SphinxDirective):
             node.document = self.state.document
         return [root]
 
-    def _source_path(self) -> Path:
-        """Validate the maintained RST source before parsing it."""
-        source_root = Path(self.env.srcdir).resolve()
-        _relative, filename = self.env.relfn2path(filename=self.arguments[0])
-        source_path = Path(filename).resolve()
-        if (
-            not source_path.is_relative_to(source_root)
-            or source_path.suffix != ".rst"
-        ):
-            raise self.error(
-                message="Interviewer Guideline source must be an RST guide "
-                "within the source directory"
-            )
-        if (
-            source_path
-            == Path(self.env.doc2path(docname=self.env.docname)).resolve()
-        ):
-            raise self.error(
-                message="An Interviewer Guideline cannot include itself"
-            )
-        return source_path
-
     def _guide_document(
-        self, *, source_path: Path, language_key: str
+        self, *, language_key: str
     ) -> tuple[nodes.document, str]:
         """Read each mapped language once and track its dependencies."""
-        source_root = Path(self.env.srcdir).resolve()
         language = self.config.hackerrank_languages.get(language_key)
         if language is None:
             raise self.error(
@@ -464,66 +428,24 @@ class InterviewerGuideline(SphinxDirective):
                     f"{language_key!r}"
                 )
             )
-        self.env.note_dependency(filename=source_path)
-        document = self._parse_guide(
-            source_path=source_path,
-            source_root=source_root,
-            context=language.get("context", {}),
-        )
-        return document, str(object=language.get("name", language_key))
-
-    def _parse_guide(
-        self,
-        *,
-        source_path: Path,
-        source_root: Path,
-        context: dict[str, object],
-    ) -> nodes.document:
-        """Parse a guide with the selected language context and restore
-        settings.
-        """
-        settings = copy(x=self.state.document.settings)
-        document = new_document(
-            source_path=str(
-                object=self.env.doc2path(docname=self.env.docname)
-            ),
-            settings=settings,
-        )
         contexts = self.config.jinja2_contexts
         context_name = self.config.hackerrank_jinja_context
         self.config.jinja2_contexts = {
             **contexts,
             context_name: {
                 **contexts.get(context_name, {}),
-                **context,
+                **language.get("context", {}),
             },
         }
-        relative_source = source_path.relative_to(source_root).as_posix()
         try:
-            source = "\n\n".join(
-                part
-                for part in (
-                    self.config.rst_prolog or "",
-                    f".. include:: /{relative_source}",
-                    self.config.rst_epilog or "",
-                )
-                if bool(part)
+            document = read_document(
+                directive=self,
+                source=self.arguments[0],
+                docname=self.env.docname,
             )
-            Parser().parse(inputstring=source, document=document)
-            for transform in (
-                DefaultSubstitutions,
-                Substitutions,
-                PropagateTargets,
-                AnonymousHyperlinks,
-                IndirectHyperlinks,
-                ExternalTargets,
-                InternalTargets,
-                DanglingReferences,
-            ):
-                transform(document=document).apply()
         finally:
             self.config.jinja2_contexts = contexts
-        return document
+        return document, str(object=language.get("name", language_key))
 
     def _introduction(
         self, *, guide: str, introduction: StringList
