@@ -124,6 +124,26 @@ def test_builder_matches_html_builder(
         image_paths={"../_images/pixel.svg": source / "topics/pixel.svg"},
     )
 
+    # Editing only an image must refresh its embedded bytes incrementally.
+    fragment = (
+        Path(app.outdir) / "interviewer-guidelines/topics/widgets/guide.html"
+    )
+    previous = fragment.read_text(encoding="utf-8")
+    image = source / "topics/pixel.svg"
+    _ = image.write_text(
+        data=image.read_text().replace("<rect", '<rect fill="red"')
+    )
+    app.build()
+    updated = fragment.read_text(encoding="utf-8")
+    assert updated != previous
+    soup = BeautifulSoup(markup=updated, features="html.parser")
+    picture = soup.select_one(selector="img")
+    assert picture is not None
+    assert (
+        b64decode(s=str(object=picture["src"]).split(sep=",", maxsplit=1)[1])
+        == image.read_bytes()
+    )
+
 
 @pytest.mark.parametrize(argnames="containers", argvalues=[0, 2])
 def test_invalid_container(
