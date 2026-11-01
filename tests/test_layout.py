@@ -17,7 +17,10 @@ from sphinx_hackerrank.layout import (
 @pytest.mark.parametrize(
     argnames=("factory", "message"),
     argvalues=[
-        (lambda: GroupRequirement(groups=("Work",)), "nonempty names"),
+        (
+            lambda: GroupRequirement(groups=("Work",), part_headings=()),
+            "nonempty names",
+        ),
         (
             lambda: GroupRequirement(
                 groups=("Work",), part_headings=("One", "One")
@@ -25,16 +28,12 @@ from sphinx_hackerrank.layout import (
             "duplicates",
         ),
         (
-            lambda: GroupRequirement(
-                groups=("Work",), part_pattern=".*", part_headings=("One",)
-            ),
-            "not both",
+            lambda: GuidelineLayout(groups=(), part_headings=()),
+            "nonempty names",
         ),
         (
-            lambda: GuidelineLayout(
-                groups=(), part_pattern=".*", part_headings=("One",)
-            ),
-            "not both",
+            lambda: GroupRequirement(groups=(), part_headings=("One",)),
+            "nonempty names",
         ),
         (lambda: SectionSelection(headings=()), "nonempty names"),
         (lambda: SectionSelection(headings=(" ",)), "nonempty names"),
@@ -48,32 +47,12 @@ from sphinx_hackerrank.layout import (
             "contain selections",
         ),
         (
-            lambda: GroupRequirement(part_pattern="", groups=("Work",)),
-            "must not be empty",
-        ),
-        (
-            lambda: GroupRequirement(part_pattern="[", groups=("Work",)),
-            "Invalid part pattern",
-        ),
-        (
-            lambda: GroupRequirement(
-                part_pattern=".*", groups=("Work",), minimum_parts=0
-            ),
-            "positive minimum_parts",
-        ),
-        (
-            lambda: GuidelineLayout(
-                part_pattern=".*", groups=(), minimum_parts=0
-            ),
-            "positive minimum_parts",
-        ),
-        (
-            lambda: GuidelineLayout(part_pattern=".*", groups=()),
+            lambda: GuidelineLayout(part_headings=("One",), groups=()),
             "nonempty names",
         ),
         (
             lambda: GuidelineLayout(
-                part_pattern=".*",
+                part_headings=("One",),
                 groups=(
                     SectionGroup(
                         title="Work",
@@ -86,7 +65,7 @@ from sphinx_hackerrank.layout import (
         ),
         (
             lambda: GuidelineLayout(
-                part_pattern=".*",
+                part_headings=("One",),
                 groups=(
                     SectionGroup(
                         title="Work",
@@ -94,7 +73,9 @@ from sphinx_hackerrank.layout import (
                     ),
                 ),
                 required_groups=(
-                    GroupRequirement(part_pattern=".*", groups=("Unknown",)),
+                    GroupRequirement(
+                        part_headings=("One",), groups=("Unknown",)
+                    ),
                 ),
             ),
             "Unknown required groups",

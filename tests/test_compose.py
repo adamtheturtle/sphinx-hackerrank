@@ -91,16 +91,14 @@ How would you handle an empty widget name?
 """
 
 
-def _configuration() -> dict[str, object]:
+def _configuration(*, part_headings: tuple[str, ...]) -> dict[str, object]:
     """Use a custom template context to expose accidental cross-language
     reads.
     """
     return {
         "extensions": ["sphinx_hackerrank"],
         "hackerrank_guideline_layout": GuidelineLayout(
-            part_pattern=(
-                r"(?:Q[1-9]\d*|First part|Second part|New part|Build a widget)"
-            ),
+            part_headings=part_headings,
             groups=(
                 SectionGroup(
                     title="Prompt",
@@ -201,8 +199,8 @@ def test_derived_layout_tracks_guide_and_mapping(
     source_url: str | None,
 ) -> None:
     """Nested follow-ups appear once, absent categories stay absent, and
-    new
-    source parts refresh both the themed page and standalone fragments.
+    updated
+    source content refreshes both the themed page and standalone fragments.
     """
     follow_up = _FOLLOW_UP
     if follow_up_parent == "Deep prompt":
@@ -220,7 +218,7 @@ def test_derived_layout_tracks_guide_and_mapping(
         buildername=buildername,
         exception_on_warning=True,
         confoverrides={
-            **_configuration(),
+            **_configuration(part_headings=("First part", "Second part")),
             "hackerrank_exclude_admonitions": exclude_admonitions,
             "hackerrank_source_url": source_url,
             "hackerrank_source_suffix": ".rst",
@@ -270,11 +268,10 @@ def test_derived_layout_tracks_guide_and_mapping(
     assert app.config.jinja2_contexts["snippets"] == {
         "example": "unselected language"
     }
-    # Add a part and a language by changing only their authoritative inputs.
+    # Change the maintained guide and remove a mapped language.
     guide_path = source / "topics/guide.rst"
     _ = guide_path.write_text(
-        data=guide
-        + "\nNew part\n--------\n\nPrompt\n~~~~~~\n\nNew requirement.\n"
+        data=guide.replace("Discuss another requirement.", "New requirement.")
     )
     mapping_path = source / "topics/derived-interviewer-guideline.yml"
     _ = mapping_path.write_text(
@@ -301,7 +298,11 @@ def test_derived_layout_tracks_guide_and_mapping(
     argvalues=[
         ("Widgets\n=======\n", "", "requires an adjacent language mapping"),
         ("No headings here.\n", _MAPPING, "requires a guide title"),
-        ("Widgets\n=======\n\nNo parts.\n", _MAPPING, "Expected at least"),
+        (
+            "Widgets\n=======\n\nNo parts.\n",
+            _MAPPING,
+            "Required guide parts are missing",
+        ),
         (
             "Widgets\n=======\n\nQ1\n--\n\nPrompt\n~~~~~~\n\nHi.\n\nFAQ\n~~~\n\nOne.\n\nFAQ\n~~~\n\nTwo.\n",
             _MAPPING,
@@ -330,7 +331,9 @@ def test_derived_layout_rejects_incomplete_or_ambiguous_sources(
         del files["topics/derived-interviewer-guideline.yml"]
     source = tmp_path / "source"
     write_sources(source=source, files=files)
-    app = make_app(srcdir=source, confoverrides=_configuration())
+    app = make_app(
+        srcdir=source, confoverrides=_configuration(part_headings=("Q1",))
+    )
     app.build()
     assert message in app.warning.getvalue()
 
@@ -355,7 +358,7 @@ def test_derived_layout_allows_a_guide_without_evaluation(
     app = make_app(
         srcdir=source,
         exception_on_warning=True,
-        confoverrides=_configuration(),
+        confoverrides=_configuration(part_headings=("Build a widget",)),
     )
     app.build()
     html = (
@@ -381,7 +384,7 @@ def test_layout_must_be_supplied_by_the_consumer(
     app = make_app(
         srcdir=source,
         confoverrides={
-            **_configuration(),
+            **_configuration(part_headings=("Unused",)),
             "hackerrank_guideline_layout": None,
         },
     )
@@ -407,9 +410,9 @@ def test_layout_accepts_unrelated_heading_vocabulary(
         srcdir=source,
         exception_on_warning=True,
         confoverrides={
-            **_configuration(),
+            **_configuration(part_headings=("Stage one",)),
             "hackerrank_guideline_layout": GuidelineLayout(
-                part_pattern=r"Stage .*",
+                part_headings=("Stage one",),
                 groups=(
                     SectionGroup(
                         title="Work",
@@ -449,8 +452,7 @@ def test_layout_accepts_unrelated_heading_vocabulary(
         (
             "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n\nQ2\n--\n\nRenamed\n~~~~~~~\n\nTwo.\n",
             GuidelineLayout(
-                part_pattern=r"Q\d",
-                minimum_parts=2,
+                part_headings=("Q1", "Q2"),
                 groups=(
                     SectionGroup(
                         title="Work",
@@ -465,8 +467,7 @@ def test_layout_accepts_unrelated_heading_vocabulary(
         (
             "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n",
             GuidelineLayout(
-                part_pattern=r"Q\d",
-                minimum_parts=2,
+                part_headings=("Q1", "Q2"),
                 groups=(
                     SectionGroup(
                         title="Work",
@@ -474,12 +475,12 @@ def test_layout_accepts_unrelated_heading_vocabulary(
                     ),
                 ),
             ),
-            "Expected at least 2 guide parts",
+            "Required guide parts are missing",
         ),
         (
             "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n\nBriefs\n~~~~~~\n\nTwo.\n",
             GuidelineLayout(
-                part_pattern=r"Q\d",
+                part_headings=("Q1",),
                 groups=(
                     SectionGroup(
                         title="Work",
@@ -497,7 +498,7 @@ def test_layout_accepts_unrelated_heading_vocabulary(
                 ".. note:: Private content only.\n"
             ),
             GuidelineLayout(
-                part_pattern=r"Q\d",
+                part_headings=("Q1",),
                 groups=(
                     SectionGroup(
                         title="Work",
@@ -513,7 +514,7 @@ def test_layout_accepts_unrelated_heading_vocabulary(
                 ".. note:: Private content only.\n"
             ),
             GuidelineLayout(
-                part_pattern=r"Q\d",
+                part_headings=("Q1",),
                 groups=(
                     SectionGroup(
                         title="Work",
@@ -530,7 +531,7 @@ def test_layout_accepts_unrelated_heading_vocabulary(
         (
             "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n\nQ1\n--\n\nBrief\n~~~~~\n\nTwo.\n",
             GuidelineLayout(
-                part_pattern=r"Q\d",
+                part_headings=("Q1",),
                 groups=(
                     SectionGroup(
                         title="Work",
@@ -543,7 +544,7 @@ def test_layout_accepts_unrelated_heading_vocabulary(
         (
             "Widgets\n=======\n\nQ1\n--\n\nQ2\n~~\n\nBrief\n^^^^^\n\nOne.\n",
             GuidelineLayout(
-                part_pattern=r"Q\d",
+                part_headings=("Q1", "Q2"),
                 groups=(
                     SectionGroup(
                         title="Work",
@@ -556,7 +557,7 @@ def test_layout_accepts_unrelated_heading_vocabulary(
         (
             "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n",
             GuidelineLayout(
-                part_pattern=r"Q\d",
+                part_headings=("Q1",),
                 groups=(
                     SectionGroup(
                         title="Work",
@@ -572,7 +573,9 @@ def test_layout_accepts_unrelated_heading_vocabulary(
                     ),
                 ),
                 required_groups=(
-                    GroupRequirement(part_pattern=r"Q1", groups=("Examples",)),
+                    GroupRequirement(
+                        part_headings=("Q1",), groups=("Examples",)
+                    ),
                 ),
             ),
             "Required groups ['Examples'] missing from guide part 'Q1'",
@@ -580,7 +583,7 @@ def test_layout_accepts_unrelated_heading_vocabulary(
         (
             "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n",
             GuidelineLayout(
-                part_pattern=r"Q\d",
+                part_headings=("Q1",),
                 groups=(
                     SectionGroup(
                         title="Work",
@@ -589,19 +592,18 @@ def test_layout_accepts_unrelated_heading_vocabulary(
                 ),
                 required_groups=(
                     GroupRequirement(
-                        part_pattern=r"Q[12]",
+                        part_headings=("Q1", "Q2"),
                         groups=("Work",),
-                        minimum_parts=2,
                     ),
                 ),
             ),
-            "Group requirement 'Q[12]' expected at least 2 parts",
+            "Required guide parts are missing",
         ),
         *[
             (
                 "Widgets\n=======\n\nQ1\n--\n\nBrief\n~~~~~\n\nOne.\n",
                 GuidelineLayout(
-                    part_pattern=r"Q\d",
+                    part_headings=("Q1",),
                     groups=(
                         SectionGroup(
                             title="Work",
@@ -632,7 +634,7 @@ def test_completeness_contract_rejects_lost_content(
     app = make_app(
         srcdir=source,
         confoverrides={
-            **_configuration(),
+            **_configuration(part_headings=("Unused",)),
             "hackerrank_guideline_layout": layout,
         },
     )
@@ -683,8 +685,7 @@ def test_named_body_layout_with_shared_sections(
     )
 
     layout = GuidelineLayout(
-        part_pattern=r"Stage .*",
-        minimum_parts=2,
+        part_headings=("Stage one", "Stage two"),
         leading_sections=(SectionSelection(headings=("Shared brief",)),),
         groups=(
             SectionGroup(
@@ -703,7 +704,7 @@ def test_named_body_layout_with_shared_sections(
         ),
         required_groups=(
             GroupRequirement(
-                part_pattern=r"Stage .*", groups=("Work",), minimum_parts=2
+                part_headings=("Stage one", "Stage two"), groups=("Work",)
             ),
         ),
     )
@@ -716,7 +717,7 @@ def test_named_body_layout_with_shared_sections(
     app = make_app(
         srcdir=source,
         confoverrides={
-            **_configuration(),
+            **_configuration(part_headings=("Unused",)),
             "hackerrank_guideline_layout": None,
             "hackerrank_guideline_layouts": {"body": layout},
         },
