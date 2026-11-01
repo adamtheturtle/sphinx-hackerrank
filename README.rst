@@ -46,8 +46,8 @@ Declare the composition in the Interviewer Guideline RST:
 .. code-block:: rst
 
    .. interviewer-guideline:: guide.rst
-      :parts: Stage [1-9]\d*
-      :minimum-parts: 2
+      :parts: Stage 1
+              Stage 2
 
       .. guideline-introduction::
 
@@ -74,8 +74,9 @@ The package has no built-in section names, grouping rules, or introductory wordi
 Each guideline's RST owns its selections, presentation, and completeness rules.
 The full guide owns the selected content, and the adjacent YAML mapping owns question identities and languages.
 
-``:parts:`` fully matches each part's own heading, independently of its contents.
-``:minimum-parts:`` rejects an incomplete set of parts and defaults to one.
+``:parts:`` lists exact source headings, one per line.
+Every listed part must exist once, independently of its selected contents.
+Parts retain the full guide's order, and punctuation in headings is literal.
 Each ``guideline-group`` combines its selections under the supplied display title.
 Groups and selections appear in declaration order.
 A ``guideline-select`` is required by default and must retain content after filtering.
@@ -85,8 +86,8 @@ Exactly one spelling must match.
 Use ``guideline-select:: .`` for a part whose instructions are its own body.
 Separately selected descendants appear once in their own group.
 
-A group's ``:required-for:`` pattern requires nonempty content in matching parts, even when its selections are optional elsewhere.
-Its optional ``:minimum-parts:`` requires a minimum number of matching parts and defaults to one.
+A group's ``:required-for:`` lists exact part headings which must contain nonempty content, even when its selections are optional elsewhere.
+Every heading in that list must identify a selected part.
 For example, coding stages can require examples while discussion stages omit them.
 ``guideline-before`` and ``guideline-after`` select shared content before or after all parts.
 They accept the same options as ``guideline-select`` and cannot overlap a part.
@@ -103,7 +104,12 @@ Optional empty groups are omitted after admonitions are removed.
 Missing mappings, incomplete parts, missing required content, and ambiguous selected headings fail the build.
 Changing the guide, mapping, recipe, or an included recipe file refreshes the view.
 
+Pattern selectors use ``:part-pattern:`` and ``:required-for-pattern:`` options.
+``:minimum-parts:`` is only accepted with a pattern selector.
+Recipes using regex values in ``:parts:`` or ``:required-for:`` must migrate to those pattern options or list their exact headings.
+
 Programmatic consumers can still configure ``GuidelineLayout``, ``SectionGroup``, ``SectionSelection``, and ``GroupRequirement`` from ``sphinx_hackerrank.layout``.
+Their ``part_headings`` field selects exact names, while ``part_pattern`` retains pattern matching.
 ``hackerrank_guideline_layout`` supplies a default Python layout, and ``hackerrank_guideline_layouts`` maps names to layouts selected with ``:layout:``.
 An inline recipe cannot be combined with ``:layout:``.
 

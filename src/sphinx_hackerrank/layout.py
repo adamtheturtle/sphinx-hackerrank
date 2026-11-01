@@ -30,6 +30,19 @@ def _pattern(*, value: str) -> None:
         raise ValueError(message) from error
 
 
+def _part_selector(*, pattern: str | None, headings: tuple[str, ...]) -> None:
+    """Require either literal headings or an explicitly supplied
+    pattern.
+    """
+    if pattern is None:
+        _names(values=headings, description="Part headings")
+    else:
+        if bool(headings):
+            message = "Use part_headings or part_pattern, not both"
+            raise ValueError(message)
+        _pattern(value=pattern)
+
+
 @dataclass(frozen=True, kw_only=True)
 class SectionSelection:
     """Select one source heading, allowing explicit alternative spellings.
@@ -67,15 +80,16 @@ class SectionGroup:
 
 @dataclass(frozen=True, kw_only=True)
 class GroupRequirement:
-    """Require rendered groups in parts matching a caller-supplied pattern."""
+    """Require rendered groups in explicitly selected parts."""
 
-    part_pattern: str
     groups: tuple[str, ...]
+    part_pattern: str | None = None
+    part_headings: tuple[str, ...] = ()
     minimum_parts: int = 1
 
     def __post_init__(self) -> None:
         """Reject requirements which cannot describe a real part set."""
-        _pattern(value=self.part_pattern)
+        _part_selector(pattern=self.part_pattern, headings=self.part_headings)
         _names(values=self.groups, description="Required groups")
         if self.minimum_parts < 1:
             message = "A group requirement needs a positive minimum_parts"
@@ -88,8 +102,9 @@ class GuidelineLayout:
     expectations.
     """
 
-    part_pattern: str
     groups: tuple[SectionGroup, ...]
+    part_pattern: str | None = None
+    part_headings: tuple[str, ...] = ()
     minimum_parts: int = 1
     leading_sections: tuple[SectionSelection, ...] = ()
     trailing_sections: tuple[SectionSelection, ...] = ()
@@ -100,7 +115,7 @@ class GuidelineLayout:
         """Validate the recipe before optional selections could hide a
         typo.
         """
-        _pattern(value=self.part_pattern)
+        _part_selector(pattern=self.part_pattern, headings=self.part_headings)
         if self.minimum_parts < 1:
             message = "A layout needs a positive minimum_parts"
             raise ValueError(message)

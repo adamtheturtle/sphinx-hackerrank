@@ -17,6 +17,25 @@ from sphinx_hackerrank.layout import (
 @pytest.mark.parametrize(
     argnames=("factory", "message"),
     argvalues=[
+        (lambda: GroupRequirement(groups=("Work",)), "nonempty names"),
+        (
+            lambda: GroupRequirement(
+                groups=("Work",), part_headings=("One", "One")
+            ),
+            "duplicates",
+        ),
+        (
+            lambda: GroupRequirement(
+                groups=("Work",), part_pattern=".*", part_headings=("One",)
+            ),
+            "not both",
+        ),
+        (
+            lambda: GuidelineLayout(
+                groups=(), part_pattern=".*", part_headings=("One",)
+            ),
+            "not both",
+        ),
         (lambda: SectionSelection(headings=()), "nonempty names"),
         (lambda: SectionSelection(headings=(" ",)), "nonempty names"),
         (lambda: SectionSelection(headings=("Brief", "Brief")), "duplicates"),
