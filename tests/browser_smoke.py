@@ -63,7 +63,7 @@ def _check_page(*, page: Page, path: Path) -> None:
     )
 
 
-def _build_fixture(*, directory: Path, code: str) -> Path:
+def _build_fixture(*, directory: Path, code: str) -> tuple[Path, Path]:
     """Generate clipboard examples from native RST and included files."""
     source = directory / "source"
     source.mkdir()
@@ -96,7 +96,7 @@ def _build_fixture(*, directory: Path, code: str) -> Path:
         doctreedir=directory / "doctrees",
         buildername="hackerrank",
         confoverrides={
-            "extensions": ["sphinx_hackerrank"],
+            "extensions": ["sphinx_hackerrank", "sphinx_copybutton"],
             "hackerrank_exports": [
                 GuidelineExport(
                     docname="index",
@@ -115,7 +115,7 @@ def _build_fixture(*, directory: Path, code: str) -> Path:
     ).read_text(encoding="utf-8")
     fixture = directory / "guidelines.html"
     _ = fixture.write_text(data=fragment + fragment, encoding="utf-8")
-    return fixture
+    return fixture, fixture_output / "index.html"
 
 
 def main() -> None:
@@ -127,15 +127,26 @@ def main() -> None:
     script = root / "src/sphinx_hackerrank/static/interviewer_guideline.js"
     code = '  if x < 3 && y > 0:\n\tprint("\u03bb & </script>")\n\n'
     with TemporaryDirectory() as directory, sync_playwright() as automation:
-        fixture = _build_fixture(directory=Path(directory), code=code)
+        fixture, website = _build_fixture(directory=Path(directory), code=code)
         browser = automation.chromium.launch()
         context = browser.new_context(
             permissions=["clipboard-read", "clipboard-write"]
         )
         page = context.new_page()
+        _ = page.goto(url=website.as_uri())
+        expect(actual=page.locator(selector=".copybtn")).to_have_count(count=2)
+        expect(actual=page.locator(selector=".hr-copy-code")).to_have_count(
+            count=0
+        )
+        page.locator(selector=".copybtn").first.click()
+        copied = page.evaluate(expression="navigator.clipboard.readText()")
+        displayed = page.locator(selector="pre").first.text_content()
+        # The website extension deliberately omits one trailing newline.
+        assert displayed is not None
+        assert copied == displayed.removesuffix("\n")
+
         for path in (
             output / "interviewer-guidelines/topics/widgets/guide.html",
-            output / "topics/widgets-interviewer-guideline.html",
             fixture,
         ):
             _check_page(page=page, path=path)

@@ -3,133 +3,17 @@
 sphinx-hackerrank
 =================
 
-Build portable Interviewer Guidelines from maintained Sphinx guides.
+Export selected Sphinx HTML as portable HackerRank Interviewer Guidelines.
+Fragments include scoped styles and code-copy controls, with no external assets.
 
-* Reuse Sphinx's HTML renderer.
-* Export selected guides as standalone HTML fragments, plus a local preview index.
-* Build and preview without a HackerRank login or API token.
-
-Section loading and selection use `sphinx-section-include <https://github.com/adamtheturtle/sphinx-section-include>`_.
-That extension also supplies the general-purpose ``include-section`` directive.
-Guide composition and portable HTML export live here.
-
-.. contents::
-
-Installation
-------------
-
-* Requires Python 3.12+ and Sphinx 9.1.1+.
-* Installed packages need no ``sys.path`` changes.
-
-Install from PyPI:
+Install and configure
+---------------------
 
 .. code-block:: console
 
    pip install sphinx-hackerrank
 
-Release wheels are also available from `GitHub releases <https://github.com/adamtheturtle/sphinx-hackerrank/releases/latest>`_.
-
-Enable the extension in ``conf.py``:
-
-.. code-block:: python
-
-   """Sphinx configuration."""
-
-   extensions = ["sphinx_hackerrank"]
-
-Authoring
----------
-
-Keep the full guide and its Interviewer Guideline RST beside each other.
-Declare the composition in the Interviewer Guideline RST:
-
-.. code-block:: rst
-
-   .. interviewer-guideline:: guide.rst
-
-      .. guideline-introduction::
-
-         See the `source guide <{source_url}>`_.
-
-      .. guideline-before:: Shared brief
-
-      .. guideline-part:: Stage 1
-
-         .. guideline-group:: Work
-
-            .. guideline-select:: Brief
-               :alternatives: Briefs
-
-         .. guideline-group:: Examples
-
-            .. guideline-select:: Cases
-               :include-heading:
-
-      .. guideline-part:: Stage 2
-
-         .. guideline-group:: Work
-
-            .. guideline-select:: Brief
-               :alternatives: Briefs
-
-      .. guideline-after:: Review
-
-The package has no built-in section names, grouping rules, or introductory wording.
-``conf.py`` configures the extension and explicit export requests.
-Each guideline's RST owns its selections, presentation, and completeness rules.
-The full guide owns the selected content.
-
-Each ``guideline-part`` names one exact source heading and contains its own groups.
-Every declared part must exist once, independently of its selected contents.
-Parts appear in declaration order, and punctuation in headings is literal.
-Repeat group declarations where parts share a layout.
-For example, Stage 1 above requires cases while Stage 2 has no cases group.
-Each ``guideline-group`` combines its selections under the supplied display title.
-Groups and selections appear in declaration order.
-A ``guideline-select`` is required by default and must retain content after filtering.
-Add ``:optional:`` for a section which may be absent or empty, and ``:include-heading:`` to retain its source heading.
-``:alternatives:`` lists other accepted heading spellings, one per line.
-Exactly one spelling must match.
-Use ``guideline-select:: .`` for a part whose instructions are its own body.
-Separately selected descendants appear once in their own group.
-
-``guideline-before`` and ``guideline-after`` select shared content before or after all parts.
-They accept the same options as ``guideline-select`` and cannot overlap a part.
-
-An optional ``guideline-introduction`` contains introductory RST, with ``{source_url}`` replaced by the configured guide URL.
-Other prose belongs in the full guide.
-Native ``include`` directives can share recipe declarations or selections, with dependencies tracked for incremental builds.
-Recipe declarations are validated and consumed before rendering.
-Misplaced declarations, invalid nesting, and unsupported recipe content fail the build.
-
-The directive composes one guide in the active Sphinx context.
-Source selections can be nested beneath other selections without requiring parent paths in the recipe.
-Optional empty groups are omitted after admonitions are removed.
-Incomplete parts, missing required content, and ambiguous selected headings fail the build.
-Changing the guide, recipe, or an included file refreshes the view.
-
-Section selections
-------------------
-
-Use one RST composition workflow for every guide.
-Select a literal source heading with ``guideline-select:: Brief``.
-Literal headings take precedence, including headings which contain ``/``.
-When a name is repeated beneath a part, select an exact heading path such as ``Brief / Discussion`` or a standard RST section label such as ``#stable-discussion``.
-Paths are relative to the selected part.
-Shared before/after selections are relative to the full guide.
-Labels must identify a section within the same scope.
-Missing or ambiguous required selections fail the build.
-
-Native includes, substitutions, and the guide's existing Jinja templates are supported.
-The source is parsed once for a composition, then all selections reuse that tree.
-Guide and included-file dependencies are tracked for incremental builds.
-Separately selected descendants are automatically excluded from copied parents using their resolved identities.
-No manual exclusion list or extraction markers are needed, and the full guide remains unchanged.
-
-Explicit exports
-----------------
-
-Supply each output's source document, CSS selector, destination, and display name:
+Add to ``conf.py``:
 
 .. code-block:: python
 
@@ -137,41 +21,61 @@ Supply each output's source document, CSS selector, destination, and display nam
 
    from sphinx_hackerrank import GuidelineExport
 
+   extensions = ["sphinx_hackerrank"]
    hackerrank_exports = [
        GuidelineExport(
-           docname="widgets-interviewer-guideline",
+           docname="review",
            selector=".hr-interviewer-guideline",
            output_path="interviewer-guidelines/widgets/review.html",
            name="Widget review",
        ),
    ]
 
-Each export selects a unique HTML destination inside the build directory, while the consumer prepares the source and supplies any question mappings or rendering contexts.
-A consumer extension can parse a recipe with ``sphinx_hackerrank.recipe.parse_recipe`` and call ``sphinx_hackerrank.compose_guide`` with a prepared document, layout, introduction, source document name, and display title.
-The result is a normal Sphinx container which the consumer can identify with its own CSS class and export request.
+Write ``review.rst`` using ordinary RST and your chosen Sphinx extensions:
 
-Build and preview
------------------
+.. code-block:: rst
+
+   Widget review
+   =============
+
+   .. container:: hr-interviewer-guideline
+
+      Interviewer instructions go here.
+
+      .. code-block:: text
+
+         example input
+
+For collapsible sections, use `sphinx-toolbox.collapse <https://sphinx-toolbox.readthedocs.io/en/stable/extensions/collapse.html>`_.
+For excerpts from maintained guides, use `sphinx-section-include <https://github.com/adamtheturtle/sphinx-section-include>`_.
+Consumers install and enable their own authoring and template extensions.
+See the `sample <./sample/source>`_ and its `dependencies <./sample/requirements.txt>`_.
+
+Build
+-----
 
 .. code-block:: console
 
    sphinx-build -W -b hackerrank docs build/hackerrank
 
-* Open ``build/hackerrank/interviewer-guidelines/index.html`` to select an exported guide.
-* Each preview uses the same self-contained HTML that can be saved as HackerRank Interviewer Guidelines.
-* Each code block has a keyboard-accessible **Copy code** button that preserves whitespace.
-* Copy buttons use JavaScript bundled with the output.
-  Hosts must allow that script to run for the buttons to appear.
-* Native disclosure elements and code remain usable without JavaScript.
-* The builder also produces ordinary themed HTML pages.
-  The extension's directives work in the standard ``html`` builder too.
-* Sphinx's native ``only`` directive can select ``builder_hackerrank``, ``builder_html``, or the shared ``html`` format tag.
+Open ``build/hackerrank/interviewer-guidelines/index.html`` to preview the exports.
+Each request selects exactly one container and writes a unique HTML destination inside the build directory.
+Use the ``hr-interviewer-guideline`` class for the bundled styles and code-copy controls.
+The builder also produces ordinary themed pages.
+Use an extension such as ``sphinx-copybutton`` for copy buttons on those pages.
+The exporter's script is embedded only in standalone fragments.
+Native disclosures and code remain usable without JavaScript.
+Hosts must allow the embedded script for copy buttons to appear.
+
+The exporter preserves the selected content, including admonitions and headings.
+Consumers own composition, language contexts, filtering, question mappings, and publishing.
+Sphinx's ``only`` directive supports ``builder_hackerrank``, ``builder_html``, or their shared ``html`` format tag.
 
 Source links
 ------------
 
-By default, links to full guide pages point back into the local HTML build.
-To target a hosted documentation or source site, configure:
+Relative HTML links are rewritten for the export's destination.
+To target a hosted guide or source site, configure:
 
 .. code-block:: python
 
@@ -181,34 +85,22 @@ To target a hosted documentation or source site, configure:
    hackerrank_source_suffix = ".html"
    hackerrank_source_anchors = True
 
-* Set ``hackerrank_source_suffix`` to ``.rst`` when linking to source files.
-* Set ``hackerrank_source_anchors = False`` when the destination does not support anchors.
-* External URLs and links within a fragment are retained.
+Use ``.rst`` for source files, and disable anchors when the destination does not support them.
+External URLs and links within a fragment are retained.
 
 Publishing
 ----------
 
-* Use a separate publishing tool to call the HackerRank API and manage credentials, question identities, candidate prompts, or projects.
-* Your publishing tool can read the generated fragments and verify saved Interviewer Guidelines.
-
-Use ``sphinx_hackerrank.html.html_equivalent`` to compare generated and saved HTML.
-It tolerates entity encoding, block indentation, and HackerRank's column-width formatting.
-Literal whitespace in code, scripts, styles, and text areas is preserved, as are spaces separating inline elements and disclosure attributes.
-``normalize_html(html=...)`` exposes the normalized representation when needed.
-The comparison can be passed as the ``notes_equal`` callback to the HackerRank SDK's ``questions.update_internal_notes()`` method.
+Use a separate tool to manage credentials, question identities, and HackerRank API calls.
+``sphinx_hackerrank.html.html_equivalent(left, right)`` compares generated and saved HTML while tolerating serialization differences and preserving code whitespace and spaces between inline elements.
+``normalize_html(html=...)`` exposes that normalized representation.
+The comparison can serve as the HackerRank SDK's ``notes_equal`` callback.
 
 Contributing
 ------------
 
-See `CONTRIBUTING.rst <./CONTRIBUTING.rst>`_ for setup, linting, tests, and releases.
-
-* The sample under ``sample/source`` uses a caller-selected Jinja context and nested guide files.
-* The wheel smoke test installs the built wheel into a fresh environment and builds that sample outside the checkout.
-
-License
--------
-
-MIT.
+See `CONTRIBUTING.rst <./CONTRIBUTING.rst>`_ for checks and releases.
+Licensed under the MIT license.
 See ``LICENSE``.
 
 .. |Build Status| image:: https://github.com/adamtheturtle/sphinx-hackerrank/actions/workflows/ci.yml/badge.svg?branch=main

@@ -1,12 +1,13 @@
-"""A consumer supplies a template context and explicit export
-destination.
-"""
+"""A consumer authors ordinary RST and supplies explicit exports."""
 
 from sphinx_hackerrank import GuidelineExport
 
-extensions = ["sphinx_hackerrank"]
+extensions = [
+    "sphinx_hackerrank",
+    "sphinx_section_include",
+    "sphinx_toolbox.collapse",
+]
 project = "Widget exercise"
-jinja2_contexts = {"snippets": {"example": "print('widget')"}}
 hackerrank_exports = [
     GuidelineExport(
         docname="topics/widgets-interviewer-guideline",

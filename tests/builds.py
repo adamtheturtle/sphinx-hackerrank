@@ -36,12 +36,11 @@ def build_expected(
         exception_on_warning=True,
         confoverrides={
             **confoverrides,
-            "extensions": ["sphinx_jinja2", "sphinx_toolbox.collapse"],
+            "extensions": ["sphinx_toolbox.collapse"],
             "html_static_path": [
                 str(object=Path(sphinx_hackerrank.__file__).parent / "static")
             ],
             "html_css_files": ["interviewer_guideline.css"],
-            "html_js_files": ["interviewer_guideline.js"],
         },
     )
     app.build()

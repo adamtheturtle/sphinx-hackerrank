@@ -82,7 +82,7 @@ def test_builder_matches_html_builder(
         buildername="hackerrank",
         exception_on_warning=True,
         confoverrides={
-            "extensions": ["sphinx_hackerrank"],
+            "extensions": ["sphinx_hackerrank", "sphinx_toolbox.collapse"],
             "hackerrank_exports": [
                 GuidelineExport(
                     docname=docname,

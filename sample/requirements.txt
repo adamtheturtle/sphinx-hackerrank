@@ -1,0 +1,2 @@
+sphinx-section-include>=2026.11.1.1
+sphinx-toolbox>=4.3.1,<5

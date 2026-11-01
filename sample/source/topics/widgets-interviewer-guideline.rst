@@ -1,19 +1,24 @@
-.. interviewer-guideline:: widgets.rst
+Widget review
+=============
 
-   .. guideline-introduction::
+.. container:: hr-interviewer-guideline
 
-      See the `full guide <{source_url}>`_.
+   See the `full guide <widgets.html>`_.
 
-   .. guideline-part:: Part 1
+   .. collapse:: Part 1
 
-      .. guideline-group:: Prompt
+      .. collapse:: Prompt
 
-         .. guideline-select:: Prompt
+         .. include-section:: widgets.rst
+            :section: Part 1 / Prompt
+            :exclude-sections: Follow up questions
 
-      .. guideline-group:: Follow up questions
+      .. collapse:: Follow up questions
 
-         .. guideline-select:: Follow up questions
+         .. include-section:: widgets.rst
+            :section: Part 1 / Prompt / Follow up questions
 
-      .. guideline-group:: FAQ
+      .. collapse:: FAQ
 
-         .. guideline-select:: FAQ
+         .. include-section:: widgets.rst
+            :section: Part 1 / FAQ

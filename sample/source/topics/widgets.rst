@@ -11,11 +11,9 @@ Prompt
 
 Print a widget's name.
 
-.. jinja:: snippets
+.. code-block:: text
 
-   .. code-block:: text
-
-      {{example}}
+   print('widget')
 
 .. collapse:: Alternate inputs
 

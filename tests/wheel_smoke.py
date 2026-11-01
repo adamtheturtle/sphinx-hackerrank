@@ -39,6 +39,8 @@ def main() -> None:
                 "--python",
                 str(object=python),
                 str(object=wheel),
+                "--requirement",
+                str(object=root / "sample/requirements.txt"),
             ],
             check=True,
         )
