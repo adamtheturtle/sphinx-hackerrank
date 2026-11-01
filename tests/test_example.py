@@ -32,7 +32,8 @@ def test_independent_example(
         },
     ]
     guideline = (
-        "Widget Interviewer Guideline\n============================\n\n"
+        "Widgets: HackerRank Interviewer Guidelines\n"
+        "==========================================\n\n"
     )
     for variant in variants:
         classes = (
@@ -45,7 +46,7 @@ def test_independent_example(
 
                .. rubric:: Widgets: {variant["name"]}
 
-               See the :doc:`full guide <widgets>`.
+               See the `full guide <widgets.html>`_.
 
                .. collapse:: Part 1
 

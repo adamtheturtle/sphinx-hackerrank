@@ -47,41 +47,73 @@ Define the layout in the consuming project's ``conf.py``:
 
    """Sphinx configuration."""
 
-   from sphinx_hackerrank.layout import GuidelineLayout, SectionGroup
-
-   hackerrank_guideline_layout = GuidelineLayout(
-       part_marker="Brief",
-       groups=(
-           SectionGroup(title="Work", sections=("Brief",)),
-           SectionGroup(
-               title="Examples",
-               sections=("Cases",),
-               include_headings=("Cases",),
-           ),
-       ),
-       trailing_sections=("Review",),
-       introduction="See the `source guide <{source_url}>`_.",
+   from sphinx_hackerrank.layout import (
+       GroupRequirement,
+       GuidelineLayout,
+       SectionGroup,
+       SectionSelection,
    )
 
-The Interviewer Guideline RST then needs one directive:
+   hackerrank_guideline_layouts = {
+       "exercise": GuidelineLayout(
+           part_pattern=r"Stage [1-9]\d*",
+           minimum_parts=2,
+           groups=(
+               SectionGroup(
+                   title="Work",
+                   sections=(SectionSelection(headings=("Brief", "Briefs")),),
+               ),
+               SectionGroup(
+                   title="Examples",
+                   sections=(
+                       SectionSelection(
+                           headings=("Cases",),
+                           required=False,
+                           include_heading=True,
+                       ),
+                   ),
+               ),
+           ),
+           trailing_sections=(SectionSelection(headings=("Review",)),),
+           required_groups=(
+               GroupRequirement(part_pattern=r"Stage 1", groups=("Examples",)),
+           ),
+           introduction="See the `source guide <{source_url}>`_.",
+       ),
+   }
+
+The Interviewer Guideline RST selects its consumer-defined layout:
 
 .. code-block:: rst
 
    .. interviewer-guideline:: guide.rst
+      :layout: exercise
 
 The package has no built-in section names, grouping rules, or introductory wording.
-The configured marker identifies parts by a direct subsection with that heading.
-Groups select source headings and combine their content under the supplied display title.
-``include_headings`` retains the listed source headings inside a group.
-``trailing_sections`` selects optional sections to show after the parts.
+``part_pattern`` fully matches each part's own heading, independently of its contents.
+``minimum_parts`` rejects an incomplete set of parts.
+Groups combine selections under the supplied display title.
+Each ``SectionSelection`` chooses exactly one of its alternative ``headings``.
+Selections are required by default and must retain content after filtering.
+Set ``required=False`` for optional sections and ``include_heading=True`` to retain their headings.
+Select ``headings=(".",)`` to use the part's own body when there is no category heading.
+Separately selected descendants are excluded from that body.
+
+``leading_sections`` and ``trailing_sections`` select shared sections before or after the parts.
+They cannot overlap a part.
+For coding stages, ``required_groups`` can require nonempty examples while discussion stages omit them.
+Each requirement also has a minimum match count to detect renamed parts.
 ``introduction`` is RST supplied by the consumer, with ``{source_url}`` replaced by the configured guide URL.
 Its default is empty.
+
+Multiple named layouts allow guides with different structures in the same project.
+For a single layout, set ``hackerrank_guideline_layout`` and omit ``:layout:``.
 
 The directive derives its page title from the guide and its languages from the adjacent question mapping.
 Selected sections can be nested beneath other selections without requiring parent paths in the layout.
 They appear once in their own group.
-Empty groups are omitted after admonitions are removed.
-A missing layout, missing mappings, missing parts, or ambiguous selected headings fail the build.
+Optional empty groups are omitted after admonitions are removed.
+A missing layout, missing mappings, incomplete parts, missing required content, or ambiguous selected headings fail the build.
 Changing the guide, mapping, or configured layout refreshes the view.
 
 For other layouts, include native sections by exact heading path or an existing RST section label:
