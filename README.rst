@@ -6,12 +6,12 @@ sphinx-hackerrank
 Build portable Interviewer Guidelines from maintained Sphinx guides.
 
 * Reuse Sphinx's HTML renderer.
-* Export one standalone HTML fragment per question and language, plus a local preview index.
+* Export selected guides as standalone HTML fragments, plus a local preview index.
 * Build and preview without a HackerRank login or API token.
 
 Section loading and selection use `sphinx-section-include <https://github.com/adamtheturtle/sphinx-section-include>`_.
 That extension also supplies the general-purpose ``include-section`` directive.
-HackerRank composition, language filtering, and HTML export live here.
+Guide composition and portable HTML export live here.
 
 .. contents::
 
@@ -75,9 +75,9 @@ Declare the composition in the Interviewer Guideline RST:
       .. guideline-after:: Review
 
 The package has no built-in section names, grouping rules, or introductory wording.
-``conf.py`` configures the extension, languages, and site-wide settings.
+``conf.py`` configures the extension and explicit export requests.
 Each guideline's RST owns its selections, presentation, and completeness rules.
-The full guide owns the selected content, and the adjacent YAML mapping owns question identities and languages.
+The full guide owns the selected content.
 
 Each ``guideline-part`` names one exact source heading and contains its own groups.
 Every declared part must exist once, independently of its selected contents.
@@ -102,11 +102,11 @@ Native ``include`` directives can share recipe declarations or selections, with 
 Recipe declarations are validated and consumed before rendering.
 Misplaced declarations, invalid nesting, and unsupported recipe content fail the build.
 
-The directive derives its page title from the guide and its languages from the adjacent question mapping.
+The directive composes one guide in the active Sphinx context.
 Source selections can be nested beneath other selections without requiring parent paths in the recipe.
 Optional empty groups are omitted after admonitions are removed.
-Missing mappings, incomplete parts, missing required content, and ambiguous selected headings fail the build.
-Changing the guide, mapping, recipe, or an included recipe file refreshes the view.
+Incomplete parts, missing required content, and ambiguous selected headings fail the build.
+Changing the guide, recipe, or an included file refreshes the view.
 
 Section selections
 ------------------
@@ -121,52 +121,34 @@ Labels must identify a section within the same scope.
 Missing or ambiguous required selections fail the build.
 
 Native includes, substitutions, and the guide's existing Jinja templates are supported.
-Each mapped language is parsed once for a composition, then all its selections reuse that parsed tree.
+The source is parsed once for a composition, then all selections reuse that tree.
 Guide and included-file dependencies are tracked for incremental builds.
 Separately selected descendants are automatically excluded from copied parents using their resolved identities.
 No manual exclusion list or extraction markers are needed, and the full guide remains unchanged.
 
-Language contexts
------------------
+Explicit exports
+----------------
 
-Configure how each language renders the guide's Jinja context:
+Supply each output's source document, CSS selector, destination, and display name:
 
 .. code-block:: python
 
    """Sphinx configuration."""
 
-   hackerrank_jinja_context = "snippets"
-   hackerrank_languages = {
-       "python": {
-           "name": "Python",
-           "context": {"variants": [{"name": "Python", "lexer": "python"}]},
-       },
-   }
+   from sphinx_hackerrank import GuidelineExport
 
-* ``context`` overrides values in the configured Jinja context while that variant is parsed.
-  The original configuration is restored afterwards.
-* ``name`` identifies redundant language disclosures to flatten in copied content.
-* Other part, category, and test-alternative disclosures remain intact.
-* Admonitions are omitted within ``hr-interviewer-guideline`` containers by default.
-  Set ``hackerrank_exclude_admonitions = False`` to retain them.
-  The full guide's admonitions are unaffected.
+   hackerrank_exports = [
+       GuidelineExport(
+           docname="widgets-interviewer-guideline",
+           selector=".hr-interviewer-guideline",
+           output_path="interviewer-guidelines/widgets/review.html",
+           name="Widget review",
+       ),
+   ]
 
-Question mappings
------------------
-
-Create a mapping beside each Interviewer Guideline, such as ``widgets-interviewer-guideline.yml`` beside ``widgets-interviewer-guideline.rst``:
-
-.. code-block:: yaml
-
-   version: 1
-   questions:
-     - language: python
-       name: Widgets - Python
-
-* ``hackerrank_manifest_pattern`` defaults to ``**/*-interviewer-guideline.yml``, relative to Sphinx's source directory.
-* Nested directories and custom source layouts are supported.
-* The builder reads the language and name.
-  Your publishing tool can manage extra fields such as question IDs.
+Each export selects a unique HTML destination inside the build directory, while the consumer prepares the source and supplies any question mappings or rendering contexts.
+A consumer extension can parse a recipe with ``sphinx_hackerrank.recipe.parse_recipe`` and call ``sphinx_hackerrank.compose_guide`` with a prepared document, layout, introduction, source document name, and display title.
+The result is a normal Sphinx container which the consumer can identify with its own CSS class and export request.
 
 Build and preview
 -----------------
@@ -175,7 +157,7 @@ Build and preview
 
    sphinx-build -W -b hackerrank docs build/hackerrank
 
-* Open ``build/hackerrank/interviewer-guidelines/index.html`` to select a question and language.
+* Open ``build/hackerrank/interviewer-guidelines/index.html`` to select an exported guide.
 * Each preview uses the same self-contained HTML that can be saved as HackerRank Interviewer Guidelines.
 * Each code block has a keyboard-accessible **Copy code** button that preserves whitespace.
 * Copy buttons use JavaScript bundled with the output.
@@ -220,7 +202,7 @@ Contributing
 
 See `CONTRIBUTING.rst <./CONTRIBUTING.rst>`_ for setup, linting, tests, and releases.
 
-* The sample under ``sample/source`` uses a custom Jinja context and nested guide files.
+* The sample under ``sample/source`` uses a caller-selected Jinja context and nested guide files.
 * The wheel smoke test installs the built wheel into a fresh environment and builds that sample outside the checkout.
 
 License

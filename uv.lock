@@ -2241,7 +2241,6 @@ source = { editable = "." }
 dependencies = [
     { name = "beautifulsoup4" },
     { name = "docutils" },
-    { name = "pyyaml" },
     { name = "sphinx", version = "9.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.13'" },
     { name = "sphinx", version = "9.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13'" },
     { name = "sphinx-jinja2" },
@@ -2283,7 +2282,6 @@ dev = [
     { name = "towncrier" },
     { name = "ty" },
     { name = "types-docutils" },
-    { name = "types-pyyaml" },
     { name = "vale" },
     { name = "vulture" },
     { name = "yamlfix" },
@@ -2298,7 +2296,6 @@ release = [
 requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.15.0" },
     { name = "docutils", specifier = ">=0.21.2" },
-    { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "sphinx", specifier = ">=9.1.1,<10" },
     { name = "sphinx-jinja2", specifier = ">=0.0.1" },
     { name = "sphinx-section-include", specifier = ">=2026.11.1" },
@@ -2339,7 +2336,6 @@ dev = [
     { name = "towncrier", specifier = "==26.9.0" },
     { name = "ty", specifier = "==0.0.92" },
     { name = "types-docutils", specifier = "==0.23.0.20260923" },
-    { name = "types-pyyaml" },
     { name = "vale", specifier = "==3.25.1.0" },
     { name = "vulture", specifier = "==2.16" },
     { name = "yamlfix", specifier = "==1.19.1" },
@@ -2743,15 +2739,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/00/ff/e5c4e5383a226703fc81e3e53bb2072526ec4b7e834eeb7146ea674192ed/types_docutils-0.23.0.20260923.tar.gz", hash = "sha256:486d9054ea84410cc201a30c15759077a5f32234247cfc08aa7290ff2509f770", size = 58327, upload-time = "2026-09-23T06:51:56.366Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/3b/43/b39c0af29de3b02bcf6194a3d6675685d2d7b8b336a31af4525bc0022c4b/types_docutils-0.23.0.20260923-py3-none-any.whl", hash = "sha256:62851b429db623e36853a4a189ce15a846e0636fe090c135d6dc5dd4f9108ef5", size = 92174, upload-time = "2026-09-23T06:51:54.908Z" },
-]
-
-[[package]]
-name = "types-pyyaml"
-version = "6.0.12.20261030"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/c7/0c/72b85bc2e3a3cf23419a7f8861c1855893f02080e202b631e33cc0d1a94a/types_pyyaml-6.0.12.20261030.tar.gz", hash = "sha256:9123d707aa31a3883eeb2cb290537c75246dfcb1c00abed7a70f5419d3bd31ae", size = 18878, upload-time = "2026-10-30T07:50:19.43Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/34/99/7e2c7c7202108220fb664ce4c5ac313a564ab5babb153516a3ac0ad8a681/types_pyyaml-6.0.12.20261030-py3-none-any.whl", hash = "sha256:508cc80546918201026a955356222111224e1f4f7deab0b91f2a95933f764e67", size = 21283, upload-time = "2026-10-30T07:50:18.389Z" },
 ]
 
 [[package]]

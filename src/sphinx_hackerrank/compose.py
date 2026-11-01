@@ -17,7 +17,6 @@ from sphinx_hackerrank.layout import (
 )
 from sphinx_hackerrank.recipe import parse_recipe
 from sphinx_hackerrank.sections import section_content
-from sphinx_hackerrank.targets import load_targets
 
 
 def _disclosure(*, title: str, content: list[nodes.Node]) -> CollapseNode:
@@ -104,7 +103,6 @@ def _category_content(
     section: nodes.section,
     selected: dict[SectionSelection, nodes.section],
     guide: str,
-    language: str,
     exclude_admonitions: bool,
     include_heading: bool,
 ) -> list[nodes.Node]:
@@ -121,7 +119,6 @@ def _category_content(
     content = section_content(
         section=section,
         guide=guide,
-        language=language,
         include_heading=include_heading,
         exclude_sections=exclusions,
     )
@@ -149,7 +146,6 @@ def _selection_content(
     selection: SectionSelection,
     selected: dict[SectionSelection, nodes.section],
     guide: str,
-    language: str,
     exclude_admonitions: bool,
 ) -> list[nodes.Node]:
     """Require meaningful content for mandatory selections after filtering."""
@@ -157,7 +153,6 @@ def _selection_content(
         section=section,
         selected=selected,
         guide=guide,
-        language=language,
         exclude_admonitions=exclude_admonitions,
         include_heading=selection.include_heading,
     )
@@ -174,7 +169,6 @@ def _part_content(
     *,
     part: nodes.section,
     guide: str,
-    language: str,
     exclude_admonitions: bool,
     layout: GuidelinePart,
 ) -> CollapseNode:
@@ -191,7 +185,6 @@ def _part_content(
                         selection=selection,
                         selected=selected,
                         guide=guide,
-                        language=language,
                         exclude_admonitions=exclude_admonitions,
                     )
                 )
@@ -250,7 +243,6 @@ def _outer_content(
     selections: tuple[SectionSelection, ...],
     parts: list[nodes.section],
     guide: str,
-    language: str,
     exclude_admonitions: bool,
 ) -> list[nodes.Node]:
     """Render leading or closing selections without duplicating part
@@ -281,7 +273,6 @@ def _outer_content(
             selection=selection,
             selected={},
             guide=guide,
-            language=language,
             exclude_admonitions=exclude_admonitions,
         )
         if bool(body):
@@ -295,7 +286,6 @@ def _guide_content(
     *,
     document: nodes.document,
     guide: str,
-    language: str,
     exclude_admonitions: bool,
     layout: GuidelineLayout,
 ) -> list[nodes.Node]:
@@ -308,7 +298,6 @@ def _guide_content(
         selections=layout.leading_sections,
         parts=parts,
         guide=guide,
-        language=language,
         exclude_admonitions=exclude_admonitions,
     )
     for part, declaration in zip(parts, layout.parts, strict=True):
@@ -316,7 +305,6 @@ def _guide_content(
             _part_content(
                 part=part,
                 guide=guide,
-                language=language,
                 exclude_admonitions=exclude_admonitions,
                 layout=declaration,
             )
@@ -327,153 +315,130 @@ def _guide_content(
             selections=layout.trailing_sections,
             parts=parts,
             guide=guide,
-            language=language,
             exclude_admonitions=exclude_admonitions,
         )
     )
     return content
 
 
-class InterviewerGuideline(SphinxDirective):
-    """Compose mapped language views using the consumer's layout
-    policy.
+def compose_guide(
+    *,
+    directive: SphinxDirective,
+    document: nodes.document,
+    layout: GuidelineLayout,
+    introduction: StringList,
+    guide: str,
+    title: str,
+) -> nodes.container:
+    """Compose one prepared document using the caller's recipe and
+    title.
     """
+    container = nodes.container(classes=["hr-interviewer-guideline"])
+    container += nodes.rubric("", title)
+    container.extend(
+        item=_introduction(
+            directive=directive,
+            guide=guide,
+            introduction=introduction,
+        )
+    )
+    container.extend(
+        item=_guide_content(
+            document=document,
+            guide=posixpath.relpath(
+                path=guide, start=posixpath.dirname(directive.env.docname)
+            ),
+            layout=layout,
+            exclude_admonitions=directive.config.hackerrank_exclude_admonitions,
+        )
+    )
+    for node in container.findall():
+        node.document = directive.state.document
+    return container
+
+
+def _introduction(
+    *,
+    directive: SphinxDirective,
+    guide: str,
+    introduction: StringList,
+) -> list[nodes.Node]:
+    """Render introductory RST with a link to its maintained source."""
+    source_url = directive.config.hackerrank_source_url
+    uri = (
+        source_url.rstrip("/")
+        + "/"
+        + guide
+        + directive.config.hackerrank_source_suffix
+        if source_url is not None
+        else posixpath.relpath(
+            path=guide + ".html",
+            start=posixpath.dirname(directive.env.docname),
+        )
+    )
+    container = nodes.container()
+    _ = directive.state.nested_parse(
+        block=StringList(
+            initlist=[
+                line.replace("{source_url}", uri) for line in introduction
+            ],
+            items=introduction.items.copy(),
+        ),
+        input_offset=0,
+        node=container,
+    )
+    if directive.config.hackerrank_exclude_admonitions:
+        _discard_admonitions(container=container)
+    return container.children
+
+
+class InterviewerGuideline(SphinxDirective):
+    """Compose one guide in the active Sphinx context."""
 
     required_arguments = 1
     has_content = True
 
     @override
     def run(self) -> list[nodes.Node]:
-        """Derive the mapped language views from the source guide."""
+        """Read one document and apply its explicit composition recipe."""
         self.assert_has_content()
         try:
-            layout, introduction = parse_recipe(directive=self)
-            source_path = resolve_source(
-                directive=self, source=self.arguments[0]
-            )
+            result = self._compose()
         except (TypeError, ValueError) as error:
             raise self.error(message=str(object=error)) from error
-        source_root = Path(self.env.srcdir).resolve()
+        return result
+
+    def _compose(self) -> list[nodes.Node]:
+        """Prepare and compose the requested source content."""
+        layout, introduction = parse_recipe(directive=self)
+        path = resolve_source(directive=self, source=self.arguments[0])
         guide = (
-            source_path.relative_to(source_root)
+            path.relative_to(Path(self.env.srcdir).resolve())
             .with_suffix(suffix="")
             .as_posix()
         )
-        targets = load_targets(
-            source_dir=source_root,
-            pattern=self.config.hackerrank_manifest_pattern,
-        ).get(self.env.docname)
-        if targets is None:
-            raise self.error(
-                message="interviewer-guideline requires "
-                "an adjacent language mapping"
-            )
-        self.env.note_dependency(filename=targets[0].metadata_path)
+        document = read_document(
+            directive=self,
+            source=self.arguments[0],
+            docname=self.env.docname,
+        )
+        title = next(document.findall(condition=nodes.title), None)
+        if title is None:
+            message = "Interviewer Guideline source requires a guide title"
+            raise ValueError(message)
+        title_text = title.astext() + ": HackerRank Interviewer Guidelines"
         root = nodes.section()
-        for target in targets:
-            document, language = self._guide_document(
-                language_key=target.language
-            )
-            title = next(document.findall(condition=nodes.title), None)
-            if title is None:
-                raise self.error(
-                    message="Interviewer Guideline source requires "
-                    "a guide title"
-                )
-            if not bool(root.children):
-                title_text = (
-                    title.astext() + ": HackerRank Interviewer Guidelines"
-                )
-                root += nodes.title("", title_text)
-                root["names"].append(
-                    nodes.fully_normalize_name(name=title_text)
-                )
-                self.state.document.note_implicit_target(target=root)
-            container = nodes.container(
-                classes=[
-                    "hr-interviewer-guideline",
-                    f"interviewer-guideline-{target.language}",
-                ]
-            )
-            container += nodes.rubric("", title.astext() + ": " + language)
-            container.extend(
-                item=self._introduction(guide=guide, introduction=introduction)
-            )
-            try:
-                container.extend(
-                    item=_guide_content(
-                        document=document,
-                        guide=guide,
-                        language=language,
-                        exclude_admonitions=self.config.hackerrank_exclude_admonitions,
-                        layout=layout,
-                    )
-                )
-            except ValueError as error:
-                raise self.error(message=str(object=error)) from error
-            root += container
+        root += nodes.title("", title_text)
+        root["names"].append(nodes.fully_normalize_name(name=title_text))
+        self.state.document.note_implicit_target(target=root)
+        root += compose_guide(
+            directive=self,
+            document=document,
+            layout=layout,
+            introduction=introduction,
+            guide=guide,
+            title=title.astext(),
+        )
         for node in root.findall():
             node.document = self.state.document
         return [root]
-
-    def _guide_document(
-        self, *, language_key: str
-    ) -> tuple[nodes.document, str]:
-        """Read each mapped language once and track its dependencies."""
-        language = self.config.hackerrank_languages.get(language_key)
-        if language is None:
-            raise self.error(
-                message=(
-                    "Expected one Interviewer Guideline language config for "
-                    f"{language_key!r}"
-                )
-            )
-        contexts = self.config.jinja2_contexts
-        context_name = self.config.hackerrank_jinja_context
-        self.config.jinja2_contexts = {
-            **contexts,
-            context_name: {
-                **contexts.get(context_name, {}),
-                **language.get("context", {}),
-            },
-        }
-        try:
-            document = read_document(
-                directive=self,
-                source=self.arguments[0],
-                docname=self.env.docname,
-            )
-        finally:
-            self.config.jinja2_contexts = contexts
-        return document, str(object=language.get("name", language_key))
-
-    def _introduction(
-        self, *, guide: str, introduction: StringList
-    ) -> list[nodes.Node]:
-        """Render the consumer's introductory RST with its source URL."""
-        source_url = self.config.hackerrank_source_url
-        uri = (
-            source_url.rstrip("/")
-            + "/"
-            + guide
-            + self.config.hackerrank_source_suffix
-            if source_url is not None
-            else posixpath.relpath(
-                path=guide + ".html",
-                start=posixpath.dirname(self.env.docname),
-            )
-        )
-        container = nodes.container()
-        _ = self.state.nested_parse(
-            block=StringList(
-                initlist=[
-                    line.replace("{source_url}", uri) for line in introduction
-                ],
-                items=introduction.items.copy(),
-            ),
-            input_offset=0,
-            node=container,
-        )
-        if self.config.hackerrank_exclude_admonitions:
-            _discard_admonitions(container=container)
-        return container.children

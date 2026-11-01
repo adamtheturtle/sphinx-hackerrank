@@ -13,15 +13,9 @@ Print a widget's name.
 
 .. jinja:: snippets
 
-   {% for variant in variants %}
+   .. code-block:: text
 
-   .. collapse:: {{ variant.name }}
-
-      .. code-block:: {{ variant.lexer }}
-
-         {{ variant.prompt }}
-
-   {% endfor %}
+      {{example}}
 
 .. collapse:: Alternate inputs
 

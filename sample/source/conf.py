@@ -1,25 +1,17 @@
-"""A standalone consumer with custom paths and Jinja context names."""
+"""A consumer supplies a template context and explicit export
+destination.
+"""
+
+from sphinx_hackerrank import GuidelineExport
 
 extensions = ["sphinx_hackerrank"]
 project = "Widget exercise"
-exclude_patterns: list[str] = []
-jinja2_contexts = {
-    "snippets": {
-        "variants": [
-            {"name": "Python", "lexer": "python", "prompt": "print('widget')"},
-            {
-                "name": "JavaScript",
-                "lexer": "javascript",
-                "prompt": "console.log('widget');",
-            },
-        ]
-    }
-}
-hackerrank_jinja_context = "snippets"
-hackerrank_languages = {
-    variant["lexer"]: {
-        "name": variant["name"],
-        "context": {"variants": [variant]},
-    }
-    for variant in jinja2_contexts["snippets"]["variants"]
-}
+jinja2_contexts = {"snippets": {"example": "print('widget')"}}
+hackerrank_exports = [
+    GuidelineExport(
+        docname="topics/widgets-interviewer-guideline",
+        selector=".hr-interviewer-guideline",
+        output_path="interviewer-guidelines/topics/widgets/guide.html",
+        name="Widget review",
+    )
+]
