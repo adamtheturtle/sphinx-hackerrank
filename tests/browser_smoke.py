@@ -1,6 +1,7 @@
 """Exercise code copying in a real browser, outside the pytest matrix."""
 
 import textwrap
+from base64 import b64decode
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -16,6 +17,10 @@ def _check_page(*, page: Page, path: Path) -> None:
     _ = page.locator(selector="details").evaluate_all(
         expression="nodes => nodes.forEach(node => { node.open = true; })"
     )
+    for image in page.locator(selector="img").all():
+        assert image.evaluate(
+            expression="image => image.complete && image.naturalWidth > 0"
+        )
     blocks = page.locator(selector=".hr-interviewer-guideline pre")
     buttons = page.get_by_role(role="button", name="Copy code")
     assert blocks.count() > 0
@@ -63,13 +68,18 @@ def _check_page(*, page: Page, path: Path) -> None:
     )
 
 
-def _build_fixture(*, directory: Path, code: str) -> Path:
+def _build_fixture(*, directory: Path, code: str) -> tuple[Path, Path]:
     """Generate clipboard examples from native RST and included files."""
     source = directory / "source"
     source.mkdir()
     (source / "conf.py").touch()
     _ = (source / "code.txt").write_text(data=code, encoding="utf-8")
     (source / "empty.txt").touch()
+    _ = (source / "pixel.png").write_bytes(
+        data=b64decode(
+            s="iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a2ioAAAAASUVORK5CYII="
+        )
+    )
     classes = "hr-interviewer-guideline selected-guide"
     _ = (source / "index.rst").write_text(
         data=textwrap.dedent(
@@ -84,6 +94,9 @@ def _build_fixture(*, directory: Path, code: str) -> Path:
 
                .. literalinclude:: empty.txt
                   :language: text
+
+               .. image:: pixel.png
+                  :alt: Example pixel
             """
         ),
         encoding="utf-8",
@@ -96,7 +109,7 @@ def _build_fixture(*, directory: Path, code: str) -> Path:
         doctreedir=directory / "doctrees",
         buildername="hackerrank",
         confoverrides={
-            "extensions": ["sphinx_hackerrank"],
+            "extensions": ["sphinx_hackerrank", "sphinx_copybutton"],
             "hackerrank_exports": [
                 GuidelineExport(
                     docname="index",
@@ -115,7 +128,7 @@ def _build_fixture(*, directory: Path, code: str) -> Path:
     ).read_text(encoding="utf-8")
     fixture = directory / "guidelines.html"
     _ = fixture.write_text(data=fragment + fragment, encoding="utf-8")
-    return fixture
+    return fixture, fixture_output / "index.html"
 
 
 def main() -> None:
@@ -127,15 +140,26 @@ def main() -> None:
     script = root / "src/sphinx_hackerrank/static/interviewer_guideline.js"
     code = '  if x < 3 && y > 0:\n\tprint("\u03bb & </script>")\n\n'
     with TemporaryDirectory() as directory, sync_playwright() as automation:
-        fixture = _build_fixture(directory=Path(directory), code=code)
+        fixture, website = _build_fixture(directory=Path(directory), code=code)
         browser = automation.chromium.launch()
         context = browser.new_context(
             permissions=["clipboard-read", "clipboard-write"]
         )
         page = context.new_page()
+        _ = page.goto(url=website.as_uri())
+        expect(actual=page.locator(selector=".copybtn")).to_have_count(count=2)
+        expect(actual=page.locator(selector=".hr-copy-code")).to_have_count(
+            count=0
+        )
+        page.locator(selector=".copybtn").first.click()
+        copied = page.evaluate(expression="navigator.clipboard.readText()")
+        displayed = page.locator(selector="pre").first.text_content()
+        # The website extension deliberately omits one trailing newline.
+        assert displayed is not None
+        assert copied == displayed.removesuffix("\n")
+
         for path in (
             output / "interviewer-guidelines/topics/widgets/guide.html",
-            output / "topics/widgets-interviewer-guideline.html",
             fixture,
         ):
             _check_page(page=page, path=path)
@@ -199,6 +223,10 @@ def main() -> None:
         plain = browser.new_context(java_script_enabled=False).new_page()
         _ = plain.goto(url=fixture.as_uri())
         expect(actual=plain.get_by_role(role="button")).to_have_count(count=0)
+        for image in plain.locator(selector="img").all():
+            assert image.evaluate(
+                expression="image => image.complete && image.naturalWidth > 0"
+            )
         assert (
             plain.locator(selector="pre").first.text_content() == rendered_code
         )

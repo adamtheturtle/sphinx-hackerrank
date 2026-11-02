@@ -37,11 +37,7 @@ dynamic = [
 ]
 dependencies = [
     "beautifulsoup4>=4.15.0",
-    "docutils>=0.21.2",
     "sphinx>=9.1.1,<10",
-    "sphinx-jinja2>=0.0.1",
-    "sphinx-section-include>=2026.11.1",
-    "sphinx-toolbox>=4.3.1,<5",
 ]
 urls.Issues = "https://github.com/adamtheturtle/sphinx-hackerrank/issues"
 urls.Source = "https://github.com/adamtheturtle/sphinx-hackerrank"
@@ -78,7 +74,10 @@ dev = [
     "shellcheck-py==0.11.0.1",
     "shfmt-py==4.2.0",
     "snapper-fmt==0.11.10",
+    "sphinx-copybutton==0.5.2",
     "sphinx-lint==1.0.2",
+    "sphinx-section-include==2026.11.1.1",
+    "sphinx-toolbox==4.3.1",
     "strict-kwargs==2026.10.9",
     "towncrier==26.9.0",
     "ty==0.0.92",
@@ -302,10 +301,6 @@ ignore = [
     "uv.lock",
     "zizmor.yml",
 ]
-
-[tool.deptry]
-# Registered by its Sphinx extension name in setup().
-per_rule_ignores.DEP002 = [ "sphinx-jinja2" ]
 
 [tool.vulture]
 # Duplicate some of .gitignore

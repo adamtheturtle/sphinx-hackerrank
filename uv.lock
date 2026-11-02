@@ -2236,16 +2236,25 @@ wheels = [
 ]
 
 [[package]]
+name = "sphinx-copybutton"
+version = "0.5.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "sphinx", version = "9.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.13'" },
+    { name = "sphinx", version = "9.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/fc/2b/a964715e7f5295f77509e59309959f4125122d648f86b4fe7d70ca1d882c/sphinx-copybutton-0.5.2.tar.gz", hash = "sha256:4cf17c82fb9646d1bc9ca92ac280813a3b605d8c421225fd9913154103ee1fbd", size = 23039, upload-time = "2023-04-14T08:10:22.998Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/9e/48/1ea60e74949eecb12cdd6ac43987f9fd331156388dcc2319b45e2ebb81bf/sphinx_copybutton-0.5.2-py3-none-any.whl", hash = "sha256:fb543fd386d917746c9a2c50360c7905b605726b9355cd26e9974857afeae06e", size = 13343, upload-time = "2023-04-14T08:10:20.844Z" },
+]
+
+[[package]]
 name = "sphinx-hackerrank"
 source = { editable = "." }
 dependencies = [
     { name = "beautifulsoup4" },
-    { name = "docutils" },
     { name = "sphinx", version = "9.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.13'" },
     { name = "sphinx", version = "9.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13'" },
-    { name = "sphinx-jinja2" },
-    { name = "sphinx-section-include" },
-    { name = "sphinx-toolbox" },
 ]
 
 [package.dev-dependencies]
@@ -2277,7 +2286,10 @@ dev = [
     { name = "shellcheck-py" },
     { name = "shfmt-py" },
     { name = "snapper-fmt" },
+    { name = "sphinx-copybutton" },
     { name = "sphinx-lint" },
+    { name = "sphinx-section-include" },
+    { name = "sphinx-toolbox" },
     { name = "strict-kwargs" },
     { name = "towncrier" },
     { name = "ty" },
@@ -2295,11 +2307,7 @@ release = [
 [package.metadata]
 requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.15.0" },
-    { name = "docutils", specifier = ">=0.21.2" },
     { name = "sphinx", specifier = ">=9.1.1,<10" },
-    { name = "sphinx-jinja2", specifier = ">=0.0.1" },
-    { name = "sphinx-section-include", specifier = ">=2026.11.1" },
-    { name = "sphinx-toolbox", specifier = ">=4.3.1,<5" },
 ]
 
 [package.metadata.requires-dev]
@@ -2331,7 +2339,10 @@ dev = [
     { name = "shellcheck-py", specifier = "==0.11.0.1" },
     { name = "shfmt-py", specifier = "==4.2.0" },
     { name = "snapper-fmt", specifier = "==0.11.10" },
+    { name = "sphinx-copybutton", specifier = "==0.5.2" },
     { name = "sphinx-lint", specifier = "==1.0.2" },
+    { name = "sphinx-section-include", specifier = "==2026.11.1.1" },
+    { name = "sphinx-toolbox", specifier = "==4.3.1" },
     { name = "strict-kwargs", specifier = "==2026.10.9" },
     { name = "towncrier", specifier = "==26.9.0" },
     { name = "ty", specifier = "==0.0.92" },
@@ -2344,20 +2355,6 @@ dev = [
 release = [
     { name = "check-wheel-contents", specifier = "==0.6.3" },
     { name = "towncrier", specifier = "==26.9.0" },
-]
-
-[[package]]
-name = "sphinx-jinja2"
-version = "0.0.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "jinja2" },
-    { name = "sphinx", version = "9.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.13'" },
-    { name = "sphinx", version = "9.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/a2/75/b854df7634e6e417de1272c6be35539dfb6788dbb4f0c2512ecbb70ddcc4/sphinx_jinja2-0.0.1.tar.gz", hash = "sha256:31340bb15225e7455977de19bb029817cba9261db1fbdbc80d227e8c8ada8d4e", size = 13955, upload-time = "2024-02-01T10:30:23.271Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b6/a9/6806dea16899448d42afb8133f3fb5e5b40f6887eeb05065ab6a416accef/sphinx_jinja2-0.0.1-py3-none-any.whl", hash = "sha256:7b4f5d03ff8240201cf620e3df7279689a62c33c1561e5867abcb823e9b4e003", size = 5921, upload-time = "2024-02-01T10:30:21.489Z" },
 ]
 
 [[package]]
@@ -2409,16 +2406,16 @@ wheels = [
 
 [[package]]
 name = "sphinx-section-include"
-version = "2026.11.1"
+version = "2026.11.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "docutils" },
     { name = "sphinx", version = "9.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.13'" },
     { name = "sphinx", version = "9.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e7/0e/28db2148106db3aaf236d9c1c26dd7368e8e147ace43a4e7801e8076796c/sphinx_section_include-2026.11.1.tar.gz", hash = "sha256:eee054bc71add8616884ba3daa87889b2e93dbd16a0002bd8f8c01081966c2f6", size = 29075, upload-time = "2026-11-01T19:49:36.499Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c6/83/47290ef65e1033f09374d0675cf116652375e49acd405472d53a944603f9/sphinx_section_include-2026.11.1.1.tar.gz", hash = "sha256:ebef7e04766d075751b8d45038a027f1e2a07982779031129c6370a32c0b883c", size = 29571, upload-time = "2026-11-01T20:07:31.314Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/73/b7/e803ef997b9607d743abce633893f5dd1c53fdd40ec8d5913e429fa92e93/sphinx_section_include-2026.11.1-py3-none-any.whl", hash = "sha256:5bc263c90b73ab773e699de9962b37483eaed467982f9f8b0aaba58288d59163", size = 9801, upload-time = "2026-11-01T19:49:35.234Z" },
+    { url = "https://files.pythonhosted.org/packages/e4/54/1f3dc0568b5ab27ded1176cc7c98ba34523e8b334e7e1a87aeb9d41d3348/sphinx_section_include-2026.11.1.1-py3-none-any.whl", hash = "sha256:6eb1f54b5ff9a709a82f116f9446006ecdfe8dc06ee4995fdd9ec4388de2ecec", size = 9858, upload-time = "2026-11-01T20:07:29.789Z" },
 ]
 
 [[package]]

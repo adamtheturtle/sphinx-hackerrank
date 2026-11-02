@@ -1,10 +1,12 @@
 """The HackerRank builder uses Sphinx's standard HTML rendering."""
 
 import textwrap
+from base64 import b64decode
 from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from bs4 import BeautifulSoup
 from sphinx.testing.util import SphinxTestApp
 
 from sphinx_hackerrank import GuidelineExport
@@ -39,6 +41,10 @@ def test_builder_matches_html_builder(
             """
         ),
         "topics/widgets.rst": "Widgets\n=======\n\nPart 1\n------\n",
+        "topics/pixel.svg": (
+            '<svg xmlns="http://www.w3.org/2000/svg" '
+            'width="1" height="1"><rect width="1" height="1"/></svg>'
+        ),
         f"{docname}.rst": textwrap.dedent(
             text=f"""\
             Interviewer Guideline
@@ -54,6 +60,9 @@ def test_builder_matches_html_builder(
                   `External <https://example.org>`_
                   `Local <#local>`_
                   `PDF <data.pdf>`_
+
+                  .. image:: pixel.svg
+                     :alt: Example image
 
                   .. code-block:: text
                      :linenos:
@@ -82,7 +91,7 @@ def test_builder_matches_html_builder(
         buildername="hackerrank",
         exception_on_warning=True,
         confoverrides={
-            "extensions": ["sphinx_hackerrank"],
+            "extensions": ["sphinx_hackerrank", "sphinx_toolbox.collapse"],
             "hackerrank_exports": [
                 GuidelineExport(
                     docname=docname,
@@ -112,6 +121,27 @@ def test_builder_matches_html_builder(
         source_url=source_url,
         source_suffix=".rst",
         source_anchors=anchors,
+        image_paths={"../_images/pixel.svg": source / "topics/pixel.svg"},
+    )
+
+    # Editing only an image must refresh its embedded bytes incrementally.
+    fragment = (
+        Path(app.outdir) / "interviewer-guidelines/topics/widgets/guide.html"
+    )
+    previous = fragment.read_text(encoding="utf-8")
+    image = source / "topics/pixel.svg"
+    _ = image.write_text(
+        data=image.read_text().replace("<rect", '<rect fill="red"')
+    )
+    app.build()
+    updated = fragment.read_text(encoding="utf-8")
+    assert updated != previous
+    soup = BeautifulSoup(markup=updated, features="html.parser")
+    picture = soup.select_one(selector="img")
+    assert picture is not None
+    assert (
+        b64decode(s=str(object=picture["src"]).split(sep=",", maxsplit=1)[1])
+        == image.read_bytes()
     )
 
 
@@ -163,3 +193,77 @@ def test_invalid_container(
         match="Expected one Interviewer Guideline",
     ):
         app.build()
+
+
+@pytest.mark.parametrize(
+    argnames="uri", argvalues=["picture.svg", "picture.svg#part"]
+)
+def test_embedded_images_preserve_bytes_and_fragments(
+    *, tmp_path: Path, uri: str
+) -> None:
+    """Images and their links retain their bytes outside the build
+    tree.
+    """
+    image = tmp_path / "picture.svg"
+    content = (
+        b'<svg xmlns="http://www.w3.org/2000/svg"><rect id="part"/></svg>'
+    )
+    _ = image.write_bytes(data=content)
+    html = (
+        f'<div class="guide"><a href="{uri}">'
+        f'<img src="{uri}" alt="Diagram"></a>'
+        '<img src="picture.svg">'
+        '<img src="https://example.org/remote.png">'
+        '<img src="//example.org/other.png"></div>'
+    )
+    result = BeautifulSoup(
+        markup=render_fragment(
+            html=html,
+            selector=".guide",
+            output_path="exports/review.html",
+            image_paths={"picture.svg": image},
+        ),
+        features="html.parser",
+    )
+    embedded = result.select_one(selector="img")
+    assert embedded is not None
+    data = str(object=embedded["src"])
+    assert data.startswith("data:image/svg+xml;base64,")
+    assert (
+        b64decode(
+            s=data.split(sep=",", maxsplit=1)[1].split(sep="#", maxsplit=1)[0]
+        )
+        == content
+    )
+    assert data.endswith("#part") is uri.endswith("#part")
+    link = result.select_one(selector="a")
+    assert link is not None
+    assert link["href"] == data
+    assert embedded["alt"] == "Diagram"
+    assert (
+        result.select(selector="img")[2]["src"]
+        == "https://example.org/remote.png"
+    )
+    assert result.select(selector="img")[3]["src"] == "//example.org/other.png"
+
+
+@pytest.mark.parametrize(
+    argnames="suffix", argvalues=[None, ".unknown", ".txt"]
+)
+def test_missing_or_unsupported_image_fails(
+    *, tmp_path: Path, suffix: str | None
+) -> None:
+    """A fragment cannot silently retain a broken local image URL."""
+    filename = "picture" + (".unknown" if suffix is None else suffix)
+    image = tmp_path / filename
+    _ = image.write_bytes(data=b"unrecognized image")
+    with pytest.raises(
+        expected_exception=ValueError,
+        match=r"Unsupported image|No local image",
+    ):
+        _ = render_fragment(
+            html=f'<div class="guide"><img src="{filename}"></div>',
+            selector=".guide",
+            output_path="exports/review.html",
+            image_paths={filename: image} if suffix is not None else None,
+        )

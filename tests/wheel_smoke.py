@@ -39,10 +39,25 @@ def main() -> None:
                 "--python",
                 str(object=python),
                 str(object=wheel),
+                "--requirement",
+                str(object=root / "sample/requirements.txt"),
             ],
             check=True,
         )
         _ = shutil.copytree(src=root / "sample/source", dst=temp / "manual")
+        _ = (temp / "manual/topics/wheel-image.svg").write_text(
+            data=(
+                '<svg xmlns="http://www.w3.org/2000/svg" '
+                'width="16" height="16"><rect width="16" height="16"/></svg>'
+            ),
+            encoding="utf-8",
+        )
+        review = temp / "manual/topics/widgets-interviewer-guideline.rst"
+        _ = review.write_text(
+            data=review.read_text(encoding="utf-8")
+            + "\n   .. image:: wheel-image.svg\n",
+            encoding="utf-8",
+        )
         _ = subprocess.run(
             args=[
                 str(object=python),
@@ -68,6 +83,9 @@ def main() -> None:
                 temp / "output/interviewer-guidelines/topics/widgets" / output
             )
             assert fragment.is_file()
+            assert "data:image/svg+xml;base64," in fragment.read_text(
+                encoding="utf-8"
+            )
         print("Installed-wheel build passed outside the checkout.")
 
 
