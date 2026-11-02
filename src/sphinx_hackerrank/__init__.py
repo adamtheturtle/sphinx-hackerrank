@@ -5,6 +5,7 @@ from pathlib import Path
 
 from sphinx.application import Sphinx
 from sphinx.config import Config
+from sphinx.util.typing import ExtensionMetadata
 
 from sphinx_hackerrank.builder import HackerRankBuilder
 from sphinx_hackerrank.exports import GuidelineExport
@@ -22,7 +23,7 @@ def _add_static_path(_app: Sphinx, config: Config) -> None:
     ]
 
 
-def setup(app: Sphinx) -> dict[str, object]:
+def setup(app: Sphinx) -> ExtensionMetadata:
     """Register portable HTML export and its scoped styles."""
     _ = app.connect(event="config-inited", callback=_add_static_path)
     app.add_css_file(filename="interviewer_guideline.css")
