@@ -93,9 +93,6 @@ Publishing
 ----------
 
 Use a separate tool to manage credentials, question identities, and HackerRank API calls.
-``sphinx_hackerrank.html.html_equivalent(left, right)`` compares generated and saved HTML while tolerating serialization differences and preserving code whitespace and spaces between inline elements.
-``normalize_html(html=...)`` exposes that normalized representation.
-The comparison can serve as the HackerRank SDK's ``notes_equal`` callback.
 
 When calling ``render_fragment`` directly with local images, supply ``image_paths`` mapping the rendered image URLs to their files.
 The builder supplies this mapping automatically.
