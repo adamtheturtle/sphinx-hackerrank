@@ -76,7 +76,7 @@ dev = [
     "snapper-fmt==0.11.10",
     "sphinx-copybutton==0.5.2",
     "sphinx-lint==1.0.2",
-    "sphinx-section-include==2026.11.1.1",
+    "sphinx-section-include==2026.11.2.1",
     "sphinx-toolbox==4.3.1",
     "strict-kwargs==2026.10.9",
     "towncrier==26.9.0",
