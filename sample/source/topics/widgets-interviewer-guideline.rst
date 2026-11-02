@@ -10,15 +10,22 @@ Widget review
       .. collapse:: Prompt
 
          .. include-section:: widgets.rst
-            :section: Part 1 / Prompt
+            :section-path:
+               Part 1
+               Prompt
             :exclude-sections: Follow up questions
 
       .. collapse:: Follow up questions
 
          .. include-section:: widgets.rst
-            :section: Part 1 / Prompt / Follow up questions
+            :section-path:
+               Part 1
+               Prompt
+               Follow up questions
 
       .. collapse:: FAQ
 
          .. include-section:: widgets.rst
-            :section: Part 1 / FAQ
+            :section-path:
+               Part 1
+               FAQ
