@@ -3,18 +3,19 @@
 sphinx-hackerrank
 =================
 
-Export selected Sphinx HTML as portable HackerRank Interviewer Guidelines.
-Fragments embed scoped styles, code-copy controls, and local images.
-Externally hosted images retain their URLs without being fetched during export.
+Export Sphinx documentation as self-contained HTML for HackerRank Interviewer Guidelines, with styles, images, and **Copy code** buttons.
+Build and preview locally without HackerRank credentials.
 
-Install and configure
----------------------
+Quick start
+-----------
+
+In an existing Sphinx project:
 
 .. code-block:: console
 
    pip install sphinx-hackerrank
 
-Add to ``conf.py``:
+Add this to ``docs/conf.py`` (replace ``docs`` with your Sphinx source directory):
 
 .. code-block:: python
 
@@ -27,12 +28,12 @@ Add to ``conf.py``:
        GuidelineExport(
            docname="review",
            selector=".hr-interviewer-guideline",
-           output_path="interviewer-guidelines/widgets/review.html",
+           output_path="interviewer-guidelines/review.html",
            name="Widget review",
        ),
    ]
 
-Write ``review.rst`` using ordinary RST and your chosen Sphinx extensions:
+Create ``docs/review.rst`` and add ``review`` to your existing toctree:
 
 .. code-block:: rst
 
@@ -47,63 +48,48 @@ Write ``review.rst`` using ordinary RST and your chosen Sphinx extensions:
 
          example input
 
-For collapsible sections, use `sphinx-toolbox.collapse <https://sphinx-toolbox.readthedocs.io/en/stable/extensions/collapse.html>`_.
-For excerpts from maintained guides, use `sphinx-section-include <https://github.com/adamtheturtle/sphinx-section-include>`_.
-Consumers install and enable their own authoring and template extensions.
-See the `sample <https://github.com/adamtheturtle/sphinx-hackerrank/tree/main/sample/source>`_ and its `dependencies <https://github.com/adamtheturtle/sphinx-hackerrank/blob/main/sample/requirements.txt>`_.
-
-Build
------
+Build:
 
 .. code-block:: console
 
    sphinx-build -W -b hackerrank docs build/hackerrank
 
 Open ``build/hackerrank/interviewer-guidelines/index.html`` to preview the exports.
-Each request selects exactly one container and writes a unique HTML destination inside the build directory.
-Use the ``hr-interviewer-guideline`` class for the bundled styles and code-copy controls.
-The builder also produces ordinary themed pages.
-Use an extension such as ``sphinx-copybutton`` for copy buttons on those pages.
-The exporter's script is embedded only in standalone fragments.
-Native disclosures and code remain usable without JavaScript.
-Hosts must allow the embedded script for copy buttons to appear.
+Upload ``build/hackerrank/interviewer-guidelines/review.html`` using your own publishing tool.
 
-The exporter preserves the selected content, including admonitions and headings.
-Consumers own composition, language contexts, filtering, question mappings, and publishing.
-Sphinx's ``only`` directive supports ``builder_hackerrank``, ``builder_html``, or their shared ``html`` format tag.
+Choosing content
+----------------
+
+Each ``GuidelineExport`` specifies:
+
+* ``docname``: the RST path relative to your source directory, without ``.rst``.
+* ``selector``: a CSS selector matching exactly one container in that page.
+* ``output_path``: a unique HTML path relative to the build directory.
+* ``name``: the label shown in the preview index.
+
+Use the ``hr-interviewer-guideline`` container class for bundled styles and copy buttons.
+The builder also produces ordinary themed documentation pages.
+
+For collapsible sections, enable `sphinx-toolbox.collapse <https://sphinx-toolbox.readthedocs.io/en/stable/extensions/collapse.html>`_.
+To reuse guide sections, enable `sphinx-section-include <https://github.com/adamtheturtle/sphinx-section-include>`_.
+See the `sample project <https://github.com/adamtheturtle/sphinx-hackerrank/tree/main/sample>`_ for both.
+
+Copy buttons require the host to allow embedded JavaScript.
+Code and collapsible sections remain usable without it.
 
 Source links
 ------------
 
-Relative HTML links are rewritten for the export's destination.
-To target a hosted guide or source site, configure:
-
-.. code-block:: python
-
-   """Sphinx configuration."""
-
-   hackerrank_source_url = "https://example.org/guides/"
-   hackerrank_source_suffix = ".html"
-   hackerrank_source_anchors = True
-
-Use ``.rst`` for source files, and disable anchors when the destination does not support them.
-External URLs and links within a fragment are retained.
-
-Publishing
-----------
-
-Use a separate tool to manage credentials, question identities, and HackerRank API calls.
-
-When calling ``render_fragment`` directly with local images, supply ``image_paths`` mapping the rendered image URLs to their files.
-The builder supplies this mapping automatically.
-Missing or unsupported local images fail export instead of leaving broken URLs.
+Links to other pages point to the local build by default.
+To link to hosted documentation, set ``hackerrank_source_url = "https://example.org/guides/"`` in ``conf.py``.
+For source files, set ``hackerrank_source_suffix = ".rst"`` too.
+Set ``hackerrank_source_anchors = False`` if the destination does not support anchors.
 
 Contributing
 ------------
 
 See `CONTRIBUTING.rst <https://github.com/adamtheturtle/sphinx-hackerrank/blob/main/CONTRIBUTING.rst>`_ for checks and releases.
-Licensed under the MIT license.
-See ``LICENSE``.
+MIT licensed.
 
 .. |Build Status| image:: https://github.com/adamtheturtle/sphinx-hackerrank/actions/workflows/ci.yml/badge.svg?branch=main
    :target: https://github.com/adamtheturtle/sphinx-hackerrank/actions
