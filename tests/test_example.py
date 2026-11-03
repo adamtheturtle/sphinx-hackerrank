@@ -4,6 +4,7 @@ import shutil
 from collections.abc import Callable
 from pathlib import Path
 
+from bs4 import BeautifulSoup
 from sphinx.testing.util import SphinxTestApp
 
 
@@ -29,6 +30,24 @@ def test_independent_example(
     html = (
         output / "interviewer-guidelines/topics/widgets/guide.html"
     ).read_text()
+    fragment = BeautifulSoup(markup=html, features="html.parser")
+    assert fragment.find(name="script") is None
+    assert "const copyText" not in html
+    preview_path = (
+        output / "interviewer-guidelines/topics/widgets/guide.preview.html"
+    )
+    preview = BeautifulSoup(
+        markup=preview_path.read_text(), features="html.parser"
+    )
+    assert preview.select_one(selector="script[data-hr-copy-code]") is not None
+    assert [node.get_text() for node in preview.select(selector="pre")] == [
+        node.get_text() for node in fragment.select(selector="pre")
+    ]
+    index = (output / "interviewer-guidelines/index.html").read_text()
+    assert "topics/widgets/guide.preview.html" in index
+    preview_path.unlink()
+    app.build()
+    assert preview_path.is_file()
     assert "Print a widget" in html
     assert "print('widget')" in html
     assert "Ask the participant" in html

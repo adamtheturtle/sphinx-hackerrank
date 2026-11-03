@@ -124,7 +124,7 @@ def _build_fixture(*, directory: Path, code: str) -> tuple[Path, Path]:
     app.build()
     assert app.statuscode == 0
     fragment = (
-        fixture_output / "interviewer-guidelines/index/guide.html"
+        fixture_output / "interviewer-guidelines/index/guide.preview.html"
     ).read_text(encoding="utf-8")
     fixture = directory / "guidelines.html"
     _ = fixture.write_text(data=fragment + fragment, encoding="utf-8")
@@ -159,7 +159,8 @@ def main() -> None:
         assert copied == displayed.removesuffix("\n")
 
         for path in (
-            output / "interviewer-guidelines/topics/widgets/guide.html",
+            output
+            / "interviewer-guidelines/topics/widgets/guide.preview.html",
             fixture,
         ):
             _check_page(page=page, path=path)

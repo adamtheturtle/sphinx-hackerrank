@@ -267,3 +267,19 @@ def test_missing_or_unsupported_image_fails(
             output_path="exports/review.html",
             image_paths={filename: image} if suffix is not None else None,
         )
+
+
+def test_upload_fragment_removes_scripts_but_retains_code() -> None:
+    """HackerRank must receive no executable tags or script source."""
+    html = render_fragment(
+        html='<div class="guide"><script>unwanted()</script>'
+        "<pre>&lt;script&gt;example&lt;/script&gt;\n</pre></div>",
+        selector=".guide",
+        output_path="guide.html",
+    )
+    soup = BeautifulSoup(markup=html, features="html.parser")
+    assert soup.find(name="script") is None
+    assert "unwanted()" not in html
+    code = soup.select_one(selector="pre code")
+    assert code is not None
+    assert code.get_text() == "<script>example</script>\n"

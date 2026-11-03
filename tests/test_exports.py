@@ -1,6 +1,7 @@
 """Export requests are explicit and independent of question metadata."""
 
 from collections.abc import Callable
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -110,10 +111,31 @@ def test_export_requests_refresh_incremental_outputs(
     assert "Second text" in output.read_text()
     assert "First text" not in output.read_text()
     index = Path(app.outdir) / "interviewer-guidelines/index.html"
-    assert 'href="../exports/review.html"' in index.read_text()
+    assert 'href="../exports/review.preview.html"' in index.read_text()
     assert "Second review" in index.read_text()
     output.unlink()
     index.unlink()
     app.build()
     assert "Second text" in output.read_text()
     assert index.is_file()
+
+
+@pytest.mark.parametrize(argnames="reverse", argvalues=[False, True])
+def test_preview_destination_collisions(
+    *, tmp_path: Path, reverse: bool
+) -> None:
+    """An upload fragment cannot overwrite another export's preview."""
+    _ = (tmp_path / "guide.rst").write_text(data="Guide\n=====\n")
+    export = GuidelineExport(
+        docname="guide",
+        selector=".guide",
+        output_path="out/guide.html",
+        name="Review",
+    )
+    exports = [export, replace(export, output_path="out/guide.preview.html")]
+    if reverse:
+        exports.reverse()
+    with pytest.raises(
+        expected_exception=ValueError, match="Duplicate export"
+    ):
+        _ = group_exports(source_dir=tmp_path, exports=exports)

@@ -3,6 +3,7 @@
 import posixpath
 from base64 import b64encode
 from collections.abc import Mapping
+from html import escape
 from importlib.resources import files
 from mimetypes import guess_type
 from pathlib import Path
@@ -38,6 +39,8 @@ def render_fragment(
         container=container,
         image_paths={} if image_paths is None else image_paths,
     )
+    for script in container.find_all(name="script"):
+        script.decompose()
     for link in container.select(selector="a.headerlink"):
         link.decompose()
     output = Path(output_path)
@@ -80,14 +83,21 @@ def render_fragment(
         .joinpath("static/interviewer_guideline.css")
         .read_text(encoding="utf-8")
     )
+    return f'<style type="text/css">{style}</style>\n{fragment}\n'
+
+
+def render_preview(*, fragment: str, name: str) -> str:
+    """Enhance a local preview without adding scripts to upload HTML."""
     script = (
         files(anchor="sphinx_hackerrank")
         .joinpath("static/interviewer_guideline.js")
         .read_text(encoding="utf-8")
     )
     return (
-        f'<style type="text/css">{style}</style>\n{fragment}\n'
-        f'<script data-hr-copy-code="">{script}</script>\n'
+        '<!doctype html>\n<html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width, initial-scale=1">'
+        f"<title>{escape(s=name)}</title></head><body>\n{fragment}"
+        f'<script data-hr-copy-code="">{script}</script>\n</body></html>\n'
     )
 
 

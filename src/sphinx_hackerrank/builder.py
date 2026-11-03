@@ -10,14 +10,16 @@ from urllib.parse import quote
 from sphinx.builders.html import StandaloneHTMLBuilder
 
 from sphinx_hackerrank.exports import GuidelineExport, group_exports
-from sphinx_hackerrank.html import render_fragment
+from sphinx_hackerrank.html import render_fragment, render_preview
 
 
 def _preview_link(*, export: GuidelineExport) -> str:
     """Link to a caller-chosen output from the preview directory."""
     href = escape(
         s=posixpath.relpath(
-            path=export.output_path,
+            path=Path(export.output_path)
+            .with_suffix(suffix=".preview.html")
+            .as_posix(),
             start="interviewer-guidelines",
         )
     )
@@ -75,7 +77,14 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
                 )
             )
             outputs = (
-                Path(self.outdir) / target.output_path for target in targets
+                output
+                for target in targets
+                for output in (
+                    Path(self.outdir) / target.output_path,
+                    (Path(self.outdir) / target.output_path).with_suffix(
+                        suffix=".preview.html"
+                    ),
+                )
             )
             if any(
                 not output.is_file()
@@ -100,22 +109,25 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
         for target in self._exports().get(pagename, []):
             output_path = Path(self.outdir) / target.output_path
             output_path.parent.mkdir(parents=True, exist_ok=True)
-            _ = output_path.write_text(
-                data=render_fragment(
-                    html=addctx["body"],
-                    selector=target.selector,
-                    output_path=target.output_path,
-                    docname=pagename,
-                    source_url=self.config.hackerrank_source_url,
-                    source_suffix=self.config.hackerrank_source_suffix,
-                    source_anchors=self.config.hackerrank_source_anchors,
-                    image_paths={
-                        posixpath.join(
-                            self.imgpath, quote(string=filename)
-                        ): Path(self.srcdir) / source
-                        for source, filename in self.images.items()
-                    },
-                ),
+            fragment = render_fragment(
+                html=addctx["body"],
+                selector=target.selector,
+                output_path=target.output_path,
+                docname=pagename,
+                source_url=self.config.hackerrank_source_url,
+                source_suffix=self.config.hackerrank_source_suffix,
+                source_anchors=self.config.hackerrank_source_anchors,
+                image_paths={
+                    posixpath.join(self.imgpath, quote(string=filename)): Path(
+                        self.srcdir
+                    )
+                    / source
+                    for source, filename in self.images.items()
+                },
+            )
+            _ = output_path.write_text(data=fragment, encoding="utf-8")
+            _ = output_path.with_suffix(suffix=".preview.html").write_text(
+                data=render_preview(fragment=fragment, name=target.name),
                 encoding="utf-8",
             )
         super().handle_page(
@@ -149,7 +161,7 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
                 "<h1>HackerRank Interviewer Guidelines</h1>"
                 "<p>Choose a guide to preview"
                 " its Interviewer Guideline.</p>"
-                "<p>These previews use the same HTML published as "
+                "<p>Previews add local copy controls to the HTML published as "
                 "HackerRank Interviewer Guidelines.</p>"
                 f"<ul>{links}</ul></main></body></html>\n"
             ),

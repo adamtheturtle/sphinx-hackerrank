@@ -59,10 +59,15 @@ def group_exports(
         if not (source_dir / (export.docname + ".rst")).is_file():
             message = f"Missing RST source for {export.docname!r}"
             raise ValueError(message)
-        destination = PurePosixPath(export.output_path).as_posix()
-        if destination in paths:
-            message = f"Duplicate export destination: {destination!r}"
-            raise ValueError(message)
-        paths.add(destination)
+        output = PurePosixPath(export.output_path)
+        for destination in (
+            output,
+            output.with_suffix(suffix=".preview.html"),
+        ):
+            path = destination.as_posix()
+            if path in paths:
+                message = f"Duplicate export destination: {path!r}"
+                raise ValueError(message)
+            paths.add(path)
         grouped.setdefault(export.docname, []).append(export)
     return grouped
