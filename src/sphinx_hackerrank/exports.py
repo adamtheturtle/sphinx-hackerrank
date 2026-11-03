@@ -13,6 +13,15 @@ class GuidelineExport:
     output_path: str
     name: str
 
+    @property
+    def preview_path(self) -> str:
+        """Keep the interactive preview beside its upload fragment."""
+        return str(
+            object=PurePosixPath(self.output_path).with_suffix(
+                suffix=".preview.html"
+            )
+        )
+
     def __post_init__(self) -> None:
         """Reject incomplete requests and paths outside the build
         directory.
@@ -39,10 +48,17 @@ class GuidelineExport:
         if PurePosixPath(self.output_path).suffix != ".html":
             message = "Export destination must be an HTML file"
             raise ValueError(message)
-        if PurePosixPath(self.output_path).as_posix() in {
-            self.docname + ".html",
-            "interviewer-guidelines/index.html",
-        }:
+        if bool(
+            {
+                PurePosixPath(self.output_path).as_posix(),
+                self.preview_path,
+            }.intersection(
+                {
+                    self.docname + ".html",
+                    "interviewer-guidelines/index.html",
+                }
+            )
+        ):
             message = "Export destination overlaps a generated page"
             raise ValueError(message)
 
@@ -60,9 +76,10 @@ def group_exports(
             message = f"Missing RST source for {export.docname!r}"
             raise ValueError(message)
         destination = PurePosixPath(export.output_path).as_posix()
-        if destination in paths:
+        destinations = {destination, export.preview_path}
+        if bool(paths.intersection(destinations)):
             message = f"Duplicate export destination: {destination!r}"
             raise ValueError(message)
-        paths.add(destination)
+        paths.update(destinations)
         grouped.setdefault(export.docname, []).append(export)
     return grouped

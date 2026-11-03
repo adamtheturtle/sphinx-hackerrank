@@ -63,6 +63,7 @@ The configuration is in ``.github/workflows/``.
 CI builds the sample with serial and parallel Sphinx readers, runs tests with 100% branch coverage, and builds distributions.
 It also installs the wheel and builds the sample outside the checkout.
 The test matrix covers Python 3.12 through 3.15 on Ubuntu and Windows with highest and lowest direct dependencies.
+A Chromium job checks preview assets, clipboard contents, keyboard activation, and disclosures without JavaScript.
 
 Run the sample and packaging checks locally:
 
@@ -72,6 +73,8 @@ Run the sample and packaging checks locally:
    uv build
    uv run --group=release check-wheel-contents dist/*.whl
    uv run --group=dev python tests/wheel_smoke.py
+   uv run --group=dev playwright install chromium
+   uv run --group=dev python tests/browser_smoke.py
 
 Release Process
 ---------------

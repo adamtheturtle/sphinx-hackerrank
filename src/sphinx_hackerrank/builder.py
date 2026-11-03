@@ -17,7 +17,7 @@ def _preview_link(*, export: GuidelineExport) -> str:
     """Link to a caller-chosen output from the preview directory."""
     href = escape(
         s=posixpath.relpath(
-            path=export.output_path,
+            path=export.preview_path,
             start="interviewer-guidelines",
         )
     )
@@ -69,10 +69,15 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
                     Path(__file__).parent
                     / "static"
                     / "interviewer_guideline.css",
+                    Path(__file__).parent
+                    / "templates"
+                    / "hackerrank-preview.html",
                 )
             )
             outputs = (
-                Path(self.outdir) / target.output_path for target in targets
+                Path(self.outdir) / path
+                for target in targets
+                for path in (target.output_path, target.preview_path)
             )
             if any(
                 not output.is_file()
@@ -97,23 +102,30 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
         for target in self._exports().get(pagename, []):
             output_path = Path(self.outdir) / target.output_path
             output_path.parent.mkdir(parents=True, exist_ok=True)
+            fragment = render_fragment(
+                html=addctx["body"],
+                selector=target.selector,
+                output_path=target.output_path,
+                docname=pagename,
+                source_url=self.config.hackerrank_source_url,
+                source_suffix=self.config.hackerrank_source_suffix,
+                source_anchors=self.config.hackerrank_source_anchors,
+                image_paths={
+                    posixpath.join(self.imgpath, quote(string=filename)): Path(
+                        self.srcdir
+                    )
+                    / source
+                    for source, filename in self.images.items()
+                },
+            )
             _ = output_path.write_text(
-                data=render_fragment(
-                    html=addctx["body"],
-                    selector=target.selector,
-                    output_path=target.output_path,
-                    docname=pagename,
-                    source_url=self.config.hackerrank_source_url,
-                    source_suffix=self.config.hackerrank_source_suffix,
-                    source_anchors=self.config.hackerrank_source_anchors,
-                    image_paths={
-                        posixpath.join(
-                            self.imgpath, quote(string=filename)
-                        ): Path(self.srcdir) / source
-                        for source, filename in self.images.items()
-                    },
-                ),
+                data=fragment,
                 encoding="utf-8",
+            )
+            super().handle_page(
+                pagename=target.preview_path.removesuffix(".html"),
+                addctx={"body": fragment, "title": target.name},
+                templatename="hackerrank-preview.html",
             )
         super().handle_page(
             pagename=pagename,
@@ -146,8 +158,8 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
                 "<h1>HackerRank Interviewer Guidelines</h1>"
                 "<p>Choose a guide to preview"
                 " its Interviewer Guideline.</p>"
-                "<p>These previews use the same HTML published as "
-                "HackerRank Interviewer Guidelines.</p>"
+                "<p>Preview controls may differ from those available "
+                "inside HackerRank.</p>"
                 f"<ul>{links}</ul></main></body></html>\n"
             ),
             encoding="utf-8",

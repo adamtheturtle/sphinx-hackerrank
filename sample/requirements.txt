@@ -1,2 +1,3 @@
 sphinx-section-include>=2026.11.2.1
 sphinx-toolbox>=4.3.1,<5
+sphinx-copybutton>=0.5.2

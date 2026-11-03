@@ -56,6 +56,7 @@ dev = [
     "mypy-strict-kwargs==2026.10.19",
     "myst-parser==5.1.0",
     "no-defaults==2026.9.1",
+    "playwright==1.64.1",
     "prek==0.5.9",
     "pydocstringformatter==1.0.0",
     "pylint[spelling]==4.1.3",
@@ -73,6 +74,7 @@ dev = [
     "shellcheck-py==0.11.0.1",
     "shfmt-py==4.2.0",
     "snapper-fmt==0.11.10",
+    "sphinx-copybutton==0.5.2",
     "sphinx-lint==1.0.2",
     "sphinx-section-include==2026.11.2.1",
     "sphinx-toolbox==4.3.1",
@@ -94,6 +96,7 @@ packages.find.where = [
 package-data.sphinx_hackerrank = [
     "py.typed",
     "static/*.css",
+    "templates/*.html",
 ]
 zip-safe = false
 
@@ -401,7 +404,7 @@ xfail_strict = true
 [tool.coverage]
 run.source = [ "src/", "tests" ]
 # These scripts run separately in CI, outside pytest.
-run.omit = [ "tests/wheel_smoke.py" ]
+run.omit = [ "tests/browser_smoke.py", "tests/wheel_smoke.py" ]
 run.branch = true
 report.fail_under = 100
 report.exclude_also = [

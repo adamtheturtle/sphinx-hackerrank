@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="{{ language or 'en' }}" data-content_root="{{ content_root }}">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title|striptags|e }}</title>
+    {% for css in css_files %}{{ css_tag(css) }}{% endfor %}
+    {% for script in script_files %}{{ js_tag(script) }}{% endfor %}
+  </head>
+  <body>
+    <main>{{ body|safe }}</main>
+  </body>
+</html>

@@ -16,10 +16,14 @@ __version__ = version(distribution_name="sphinx-hackerrank")
 
 
 def _add_static_path(_app: Sphinx, config: Config) -> None:
-    """Make the guideline assets available to themed HTML pages."""
+    """Make the guideline assets and preview template available."""
     config.html_static_path = [
         *config.html_static_path,
         str(object=Path(__file__).parent / "static"),
+    ]
+    config.templates_path = [
+        *config.templates_path,
+        str(object=Path(__file__).parent / "templates"),
     ]
 
 

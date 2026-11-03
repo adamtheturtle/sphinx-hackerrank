@@ -4,6 +4,7 @@ from sphinx_hackerrank import GuidelineExport
 
 extensions = [
     "sphinx_hackerrank",
+    "sphinx_copybutton",
     "sphinx_section_include",
     "sphinx_toolbox.collapse",
 ]

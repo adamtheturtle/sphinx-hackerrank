@@ -5,6 +5,7 @@ sphinx-hackerrank
 
 Export Sphinx documentation as self-contained HTML for HackerRank Interviewer Guidelines, with styles and images.
 Build and preview locally without HackerRank credentials.
+Enable ``sphinx_copybutton`` in your Sphinx extensions for code-copy buttons in previews.
 
 Quick start
 -----------
@@ -69,6 +70,8 @@ Each ``GuidelineExport`` specifies:
 
 Use the ``hr-interviewer-guideline`` container class for bundled styles.
 The builder also produces ordinary themed documentation pages.
+The preview index opens adjacent ``.preview.html`` pages with the project's configured Sphinx assets.
+Upload the original ``.html`` fragments to HackerRank, which strips JavaScript.
 
 For collapsible sections, enable `sphinx-toolbox.collapse <https://sphinx-toolbox.readthedocs.io/en/stable/extensions/collapse.html>`_.
 To reuse guide sections, enable `sphinx-section-include <https://github.com/adamtheturtle/sphinx-section-include>`_.

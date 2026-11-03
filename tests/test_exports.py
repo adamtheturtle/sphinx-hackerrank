@@ -57,6 +57,18 @@ def test_sources_and_duplicate_destinations(*, tmp_path: Path) -> None:
     ):
         _ = group_exports(source_dir=tmp_path, exports=[export, export])
 
+    collision = GuidelineExport(
+        docname="guide",
+        selector=".guide",
+        output_path=export.preview_path,
+        name="Conflicting upload",
+    )
+    for exports in ([export, collision], [collision, export]):
+        with pytest.raises(
+            expected_exception=ValueError, match="Duplicate export"
+        ):
+            _ = group_exports(source_dir=tmp_path, exports=exports)
+
 
 def test_export_requests_refresh_incremental_outputs(
     *,
@@ -94,8 +106,10 @@ def test_export_requests_refresh_incremental_outputs(
     )
     app.build()
     output = Path(app.outdir) / first.output_path
+    preview = Path(app.outdir) / first.preview_path
     original_time = output.stat().st_mtime_ns
     assert "First text" in output.read_text()
+    assert "First text" in preview.read_text()
     app.build()
     assert output.stat().st_mtime_ns == original_time
     app.config.hackerrank_exports = [
@@ -110,10 +124,14 @@ def test_export_requests_refresh_incremental_outputs(
     assert "Second text" in output.read_text()
     assert "First text" not in output.read_text()
     index = Path(app.outdir) / "interviewer-guidelines/index.html"
-    assert 'href="../exports/review.html"' in index.read_text()
+    assert 'href="../exports/review.preview.html"' in index.read_text()
     assert "Second review" in index.read_text()
     output.unlink()
     index.unlink()
     app.build()
     assert "Second text" in output.read_text()
     assert index.is_file()
+    preview.unlink()
+    app.build()
+    assert "Second text" in preview.read_text()
+    assert "First text" not in preview.read_text()
