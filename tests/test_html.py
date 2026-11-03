@@ -124,6 +124,12 @@ def test_builder_matches_html_builder(
         source_anchors=anchors,
         image_paths={"../_images/pixel.svg": source / "topics/pixel.svg"},
     )
+    # The project IDE supplies native copy controls for exported code blocks.
+    fragment_soup = BeautifulSoup(markup=exported, features="html.parser")
+    assert [
+        code.get_text() for code in fragment_soup.select(selector="pre > code")
+    ] == ["if x < 3 && y > 0:\n"]
+    assert not bool(fragment_soup.select(selector=".linenos, script, button"))
 
     # Editing only an image must refresh its embedded bytes incrementally.
     fragment = (

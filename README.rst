@@ -57,6 +57,12 @@ Build:
 Open ``build/hackerrank/interviewer-guidelines/index.html`` to preview the exports.
 Upload ``build/hackerrank/interviewer-guidelines/review.html`` using your own publishing tool.
 
+Code blocks are exported as ``<pre><code>`` with their original text and whitespace.
+HackerRank's project IDE adds native copy controls to these blocks in its Guidelines tab.
+Hover over a code block to reveal its Copy button.
+Check copying inside a project interview.
+The standalone preview displays the exported HTML without the IDE's controls.
+
 Choosing content
 ----------------
 
