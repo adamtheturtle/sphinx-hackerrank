@@ -67,7 +67,10 @@ Each ``GuidelineExport`` specifies:
 * ``output_path``: a unique HTML path relative to the build directory.
 * ``name``: the label shown in the preview index.
 
-Use the ``hr-interviewer-guideline`` container class for bundled styles and copy buttons.
+Use the ``hr-interviewer-guideline`` container class for bundled styles.
+Copy buttons come from ``sphinx-copybutton`` on ordinary pages and in standalone exports.
+Its ``copybutton_*`` settings in ``conf.py`` apply to both.
+Copying removes one trailing newline, following ``sphinx-copybutton`` behavior.
 The builder also produces ordinary themed documentation pages.
 
 For collapsible sections, enable `sphinx-toolbox.collapse <https://sphinx-toolbox.readthedocs.io/en/stable/extensions/collapse.html>`_.

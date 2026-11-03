@@ -2255,6 +2255,7 @@ dependencies = [
     { name = "beautifulsoup4" },
     { name = "sphinx", version = "9.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.13'" },
     { name = "sphinx", version = "9.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13'" },
+    { name = "sphinx-copybutton" },
 ]
 
 [package.dev-dependencies]
@@ -2308,6 +2309,7 @@ release = [
 requires-dist = [
     { name = "beautifulsoup4", specifier = ">=4.15.0" },
     { name = "sphinx", specifier = ">=9.1.1,<10" },
+    { name = "sphinx-copybutton", specifier = ">=0.5.2,<0.6" },
 ]
 
 [package.metadata.requires-dev]

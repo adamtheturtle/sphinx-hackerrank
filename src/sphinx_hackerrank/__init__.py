@@ -25,6 +25,7 @@ def _add_static_path(_app: Sphinx, config: Config) -> None:
 
 def setup(app: Sphinx) -> ExtensionMetadata:
     """Register portable HTML export and its scoped styles."""
+    app.setup_extension(extname="sphinx_copybutton")
     _ = app.connect(event="config-inited", callback=_add_static_path)
     app.add_css_file(filename="interviewer_guideline.css")
     app.add_config_value(

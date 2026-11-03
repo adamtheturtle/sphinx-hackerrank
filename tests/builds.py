@@ -36,7 +36,7 @@ def build_expected(
         exception_on_warning=True,
         confoverrides={
             **confoverrides,
-            "extensions": ["sphinx_toolbox.collapse"],
+            "extensions": ["sphinx_toolbox.collapse", "sphinx_copybutton"],
             "html_static_path": [
                 str(object=Path(sphinx_hackerrank.__file__).parent / "static")
             ],

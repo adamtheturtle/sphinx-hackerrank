@@ -63,7 +63,7 @@ The configuration is in ``.github/workflows/``.
 CI builds the sample with serial and parallel Sphinx readers, runs tests with 100% branch coverage, and builds distributions.
 It also installs the wheel and builds the sample outside the checkout.
 The test matrix covers Python 3.12 through 3.15 on Ubuntu and Windows with highest and lowest direct dependencies.
-A separate Chromium job checks code-copy buttons, exact clipboard contents, keyboard activation, and clipboard failures.
+A separate Chromium job checks upstream code-copy buttons, clipboard contents, keyboard activation, offline exports, and shared configuration.
 
 Run the sample and packaging checks locally:
 
