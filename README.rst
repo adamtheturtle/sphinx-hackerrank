@@ -3,7 +3,7 @@
 sphinx-hackerrank
 =================
 
-Export Sphinx documentation as self-contained HTML for HackerRank Interviewer Guidelines, with styles and images.
+Export Sphinx documentation as self-contained HTML for HackerRank Interviewer Guidelines, with styles, images, and **Copy code** buttons.
 Build and preview locally without HackerRank credentials.
 
 Quick start
@@ -67,12 +67,15 @@ Each ``GuidelineExport`` specifies:
 * ``output_path``: a unique HTML path relative to the build directory.
 * ``name``: the label shown in the preview index.
 
-Use the ``hr-interviewer-guideline`` container class for bundled styles.
+Use the ``hr-interviewer-guideline`` container class for bundled styles and copy buttons.
 The builder also produces ordinary themed documentation pages.
 
 For collapsible sections, enable `sphinx-toolbox.collapse <https://sphinx-toolbox.readthedocs.io/en/stable/extensions/collapse.html>`_.
 To reuse guide sections, enable `sphinx-section-include <https://github.com/adamtheturtle/sphinx-section-include>`_.
 See the `sample project <https://github.com/adamtheturtle/sphinx-hackerrank/tree/main/sample>`_ for both.
+
+Copy buttons require the host to allow embedded JavaScript.
+Code and collapsible sections remain usable without it.
 
 Source links
 ------------

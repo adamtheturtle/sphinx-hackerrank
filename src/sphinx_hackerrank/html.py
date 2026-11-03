@@ -80,7 +80,15 @@ def render_fragment(
         .joinpath("static/interviewer_guideline.css")
         .read_text(encoding="utf-8")
     )
-    return f'<style type="text/css">{style}</style>\n{fragment}\n'
+    script = (
+        files(anchor="sphinx_hackerrank")
+        .joinpath("static/interviewer_guideline.js")
+        .read_text(encoding="utf-8")
+    )
+    return (
+        f'<style type="text/css">{style}</style>\n{fragment}\n'
+        f'<script data-hr-copy-code="">{script}</script>\n'
+    )
 
 
 def _embed_images(*, container: Tag, image_paths: Mapping[str, Path]) -> None:

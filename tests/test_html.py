@@ -111,10 +111,9 @@ def test_builder_matches_html_builder(
             encoding="utf-8"
         ) == html
     # Export the independently built native page through the same public API.
-    exported = (
+    assert (
         Path(app.outdir) / "interviewer-guidelines/topics/widgets/guide.html"
-    ).read_text(encoding="utf-8")
-    assert exported == render_fragment(
+    ).read_text(encoding="utf-8") == render_fragment(
         html=expected[docname],
         selector=".selected-guide",
         output_path="interviewer-guidelines/topics/widgets/guide.html",
