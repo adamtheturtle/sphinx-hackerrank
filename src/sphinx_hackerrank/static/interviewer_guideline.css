@@ -34,11 +34,3 @@
   text-align: left;
   vertical-align: top;
 }
-/* Keep upstream controls visible and keyboard focus clear in standalone HTML. */
-.hr-interviewer-guideline button.copybtn {
-  opacity: 1;
-}
-.hr-interviewer-guideline button.copybtn:focus-visible {
-  outline: 2px solid #005fcc;
-  outline-offset: 2px;
-}

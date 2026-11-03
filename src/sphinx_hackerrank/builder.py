@@ -7,8 +7,6 @@ from pathlib import Path
 from typing import Any, override
 from urllib.parse import quote
 
-# Upstream has no type stubs; only its installed resource path is used.
-import sphinx_copybutton  # pyright: ignore[reportMissingTypeStubs]
 from sphinx.builders.html import StandaloneHTMLBuilder
 
 from sphinx_hackerrank.exports import GuidelineExport, group_exports
@@ -71,7 +69,6 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
                     Path(__file__).parent
                     / "static"
                     / "interviewer_guideline.css",
-                    Path(sphinx_copybutton.__file__),
                 )
             )
             outputs = (
@@ -115,8 +112,7 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
                         ): Path(self.srcdir) / source
                         for source, filename in self.images.items()
                     },
-                )
-                + self._copybutton_assets(),
+                ),
                 encoding="utf-8",
             )
         super().handle_page(
@@ -125,34 +121,6 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
             templatename=templatename,
             outfilename=outfilename,
             event_arg=event_arg,
-        )
-
-    def _copybutton_assets(self) -> str:
-        """Embed upstream controls without relying on a Sphinx page
-        head.
-        """
-        static = Path(sphinx_copybutton.__file__).parent / "_static"
-        style = (static / "copybutton.css").read_text(encoding="utf-8")
-        clipboard = (static / "clipboard.min.js").read_text(encoding="utf-8")
-        script = self.templates.render_string(
-            source=(static / "copybutton.js_t").read_text(encoding="utf-8"),
-            context=self.config.html_context,
-        )
-        # Multiple fragments in one page share one upstream initialization.
-        bootstrap = (
-            "(() => {"
-            "if (document.documentElement.hasAttribute('data-hr-copybutton')) "
-            "return;"
-            "document.documentElement.setAttribute('data-hr-copybutton', '');"
-            "const DOCUMENTATION_OPTIONS = {URL_ROOT: ''};\n"
-            + clipboard
-            + "\n"
-            + script
-            + "\n})();"
-        ).replace("</", r"<\/")
-        return (
-            f'<style data-sphinx-copybutton="">{style}</style>\n'
-            f'<script data-sphinx-copybutton="">{bootstrap}</script>\n'
         )
 
     @override

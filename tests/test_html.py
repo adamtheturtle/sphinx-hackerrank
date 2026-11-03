@@ -110,12 +110,11 @@ def test_builder_matches_html_builder(
         assert (Path(app.outdir) / f"{name}.html").read_text(
             encoding="utf-8"
         ) == html
-    # Compare content independently of the upstream assets appended to it.
+    # Export the independently built native page through the same public API.
     exported = (
         Path(app.outdir) / "interviewer-guidelines/topics/widgets/guide.html"
     ).read_text(encoding="utf-8")
-    content = exported.partition('<style data-sphinx-copybutton="">')[0]
-    assert content == render_fragment(
+    assert exported == render_fragment(
         html=expected[docname],
         selector=".selected-guide",
         output_path="interviewer-guidelines/topics/widgets/guide.html",
