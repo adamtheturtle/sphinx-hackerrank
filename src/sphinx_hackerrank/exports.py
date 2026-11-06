@@ -8,6 +8,7 @@ from typing import Any, ClassVar, override
 
 from docutils import nodes
 from sphinx.addnodes import pending_xref
+from sphinx.application import Sphinx
 from sphinx.builders import Builder
 from sphinx.domains import Domain
 from sphinx.environment import BuildEnvironment
@@ -196,3 +197,21 @@ def export_inventory(env: BuildEnvironment) -> dict[str, list[Export]]:
     domain = env.get_domain(domainname="hackerrank")
     assert isinstance(domain, HackerRankDomain)
     return domain.exports
+
+
+def native_export_containers(
+    app: Sphinx, doctree: nodes.document, _docname: str
+) -> None:
+    """Give other writers standard containers in the resolved tree."""
+    if app.builder.name == "hackerrank":
+        return
+    for node in list(doctree.findall(condition=GuidelineExportNode)):
+        container = nodes.container(
+            rawsource=node.rawsource, **node.attributes
+        )
+        container.source = node.source
+        container.line = node.line
+        container.extend(item=node.children)
+        node.replace_self(new=container)
+        for identifier in container["ids"]:
+            doctree.ids[identifier] = container

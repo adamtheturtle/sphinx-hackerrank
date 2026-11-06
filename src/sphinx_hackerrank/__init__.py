@@ -12,6 +12,7 @@ from sphinx_hackerrank.exports import (
     GuidelineExportDirective,
     GuidelineExportNode,
     HackerRankDomain,
+    native_export_containers,
 )
 from sphinx_hackerrank.writer import depart_export, visit_export
 
@@ -35,6 +36,9 @@ def setup(app: Sphinx) -> ExtensionMetadata:
     app.add_node(node=GuidelineExportNode, html=(visit_export, depart_export))
     app.add_directive(name="hackerrank-export", cls=GuidelineExportDirective)
     app.add_domain(domain=HackerRankDomain)
+    _ = app.connect(
+        event="doctree-resolved", callback=native_export_containers, priority=0
+    )
     app.add_config_value(
         name="hackerrank_source_url",
         default=None,
@@ -56,7 +60,7 @@ def setup(app: Sphinx) -> ExtensionMetadata:
     app.add_builder(builder=HackerRankBuilder)
     return {
         "version": __version__,
-        "env_version": 1,
+        "env_version": 2,
         "parallel_read_safe": True,
         "parallel_write_safe": True,
     }

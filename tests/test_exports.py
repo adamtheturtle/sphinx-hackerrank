@@ -122,7 +122,9 @@ def test_invalid_directive(
         app.build()
 
 
-@pytest.mark.parametrize(argnames="builder", argvalues=["html", "hackerrank"])
+@pytest.mark.parametrize(
+    argnames="builder", argvalues=["html", "hackerrank", "text"]
+)
 def test_multiple_boundaries(
     *,
     make_app: Callable[..., SphinxTestApp],
@@ -137,7 +139,7 @@ def test_multiple_boundaries(
         source=source,
         files={
             "index.rst": (
-                "Index\n=====\n\nOutside export.\n\n"
+                "Index\n=====\n\nOutside export.\n\n.. _first-boundary:\n\n"
                 ".. hackerrank-export:: exports/first.html\n"
                 "   :name: First\n\n   First content.\n\n"
                 ".. hackerrank-export:: exports/second.html\n"
@@ -153,7 +155,8 @@ def test_multiple_boundaries(
     )
     app.build()
     output = Path(app.outdir)
-    page = (output / "index.html").read_text()
+    suffix = ".txt" if builder == "text" else ".html"
+    page = (output / ("index" + suffix)).read_text()
     assert "First content" in page
     assert "Second content" in page
     if builder == "hackerrank":
