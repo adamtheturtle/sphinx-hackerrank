@@ -155,10 +155,6 @@ def test_multiple_boundaries(
     )
     app.build()
     output = Path(app.outdir)
-    suffix = ".txt" if builder == "text" else ".html"
-    page = (output / ("index" + suffix)).read_text()
-    assert "First content" in page
-    assert "Second content" in page
     if builder == "hackerrank":
         first = (output / "exports/first.html").read_text()
         assert "First content" in first
@@ -167,7 +163,12 @@ def test_multiple_boundaries(
         second = (output / "exports/second.html").read_text()
         assert "Second content" in second
         assert "First content" not in second
+        assert not (output / "index.html").exists()
     else:
+        suffix = ".txt" if builder == "text" else ".html"
+        page = (output / ("index" + suffix)).read_text()
+        assert "First content" in page
+        assert "Second content" in page
         assert not (output / "exports").exists()
 
 
@@ -247,3 +248,58 @@ def test_parallel_inventory_merging(
     domain.clear_doc(docname="other")
     domain.clear_doc(docname="missing")
     assert domain.exports == {}
+
+
+def test_parallel_exports_match_serial(
+    *, make_app: Callable[..., SphinxTestApp], tmp_path: Path
+) -> None:
+    """Fresh parallel reads and writes preserve references and embedded
+    assets.
+    """
+    files = {
+        "index.rst": "Index\n=====\n\n.. toctree::\n\n"
+        + "".join(f"   page{number}\n" for number in range(7)),
+        "pixel.svg": (
+            '<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>'
+        ),
+    }
+    for number in range(7):
+        files[f"page{number}.rst"] = (
+            f"Page {number}\n======\n\n"
+            f".. hackerrank-export:: exports/page{number}.html\n"
+            f"   :name: Page {number}\n\n"
+            f"   Export {number} links to :doc:`page{(number + 1) % 7}`.\n\n"
+            "   .. image:: pixel.svg\n\n"
+            "   .. code-block:: text\n\n      original code\n"
+        )
+    outputs: list[dict[str, bytes]] = []
+    for parallel in (1, 2):
+        source = tmp_path / str(object=parallel)
+        write_sources(source=source, files=files)
+        app = make_app(
+            srcdir=source,
+            buildername="hackerrank",
+            parallel=parallel,
+            exception_on_warning=True,
+            confoverrides={
+                "extensions": ["sphinx_hackerrank"],
+                "hackerrank_source_url": "https://docs.example/",
+            },
+        )
+        app.build()
+        output = Path(app.outdir)
+        outputs.append(
+            {
+                path.relative_to(output).as_posix(): path.read_bytes()
+                for path in output.rglob(pattern="*")
+                if path.is_file()
+            }
+        )
+        app.cleanup()
+    expected_count = 8
+    assert len(outputs[0]) == expected_count
+    assert outputs[0] == outputs[1]
+    assert b"data:image/svg+xml;base64," in outputs[1]["exports/page0.html"]
+    assert (
+        b"https://docs.example/page1.html" in outputs[1]["exports/page0.html"]
+    )
