@@ -2226,7 +2226,7 @@ dev = [
     { name = "shfmt-py", specifier = "==4.2.0" },
     { name = "snapper-fmt", specifier = "==0.11.10" },
     { name = "sphinx-lint", specifier = "==1.0.2" },
-    { name = "sphinx-section-include", specifier = "==2026.11.2.1" },
+    { name = "sphinx-section-include", specifier = "==2026.11.2.5" },
     { name = "sphinx-toolbox", specifier = "==4.3.1" },
     { name = "strict-kwargs", specifier = "==2026.10.9" },
     { name = "towncrier", specifier = "==26.9.0" },
@@ -2291,16 +2291,16 @@ wheels = [
 
 [[package]]
 name = "sphinx-section-include"
-version = "2026.11.2.1"
+version = "2026.11.2.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "docutils" },
     { name = "sphinx", version = "9.1.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.13'" },
     { name = "sphinx", version = "9.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d9/84/9ff97d38e4f3c4844ab1c59bba5917dd659f9d13e6e05c20af205a020403/sphinx_section_include-2026.11.2.1.tar.gz", hash = "sha256:3243e157bd10229eb1cda17f0a7a0394a81e6b74c9e9c8469d7cd409a499790c", size = 159152, upload-time = "2026-11-02T10:22:30.886Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/0e/83/7281695c91824ecf083941412a6cbc00b5ff5065b9727bc3d90b145fec80/sphinx_section_include-2026.11.2.5.tar.gz", hash = "sha256:a6fcc8e33dde4f38d00bd4203b9cad42a173d93917a0766e0a34b2689e5de27a", size = 167393, upload-time = "2026-11-02T21:30:09.17Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f3/74/c51efb60c4fa883c922bdb4bc39f5a81cb13eaeb6e8d32a851d653131e73/sphinx_section_include-2026.11.2.1-py3-none-any.whl", hash = "sha256:83af121a5b90ec0109cbf76dc166e72fa6360ffe984b2843a09905e44d2fc067", size = 10358, upload-time = "2026-11-02T10:22:29.695Z" },
+    { url = "https://files.pythonhosted.org/packages/8f/74/4a83a6d161e111ebd8a0a6287638feba5d84a841706c67994f9b1037674f/sphinx_section_include-2026.11.2.5-py3-none-any.whl", hash = "sha256:dd8db3b9488f22a987f5a03f20b2598c3a5dc4bd4da39920e20e27800deabdae", size = 12270, upload-time = "2026-11-02T21:30:07.93Z" },
 ]
 
 [[package]]
