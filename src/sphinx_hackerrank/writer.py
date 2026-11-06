@@ -19,9 +19,10 @@ def depart_export(
 ) -> None:
     """Retain the page's container and export its fully rendered HTML."""
     translator.depart_container(node=node)
-    if isinstance(translator.builder, HackerRankBuilder):
-        translator.builder.write_fragment(
-            export=node.export,
-            html="".join(translator.body[node["html_start"] :]),
-        )
+    builder = translator.builder
+    assert isinstance(builder, HackerRankBuilder)
+    builder.write_fragment(
+        export=node.export,
+        html="".join(translator.body[node["html_start"] :]),
+    )
     del node["html_start"]

@@ -77,6 +77,7 @@ Python extensions can construct the same boundary directly:
 
 The HTML translator captures the boundary while rendering the full document, preserving Sphinx's resolved references and image paths.
 Export metadata is retained across incremental and parallel builds.
+Other builders receive ordinary containers, preserving their native rendering without additional node handlers.
 
 For collapsible sections, enable `sphinx-toolbox.collapse <https://sphinx-toolbox.readthedocs.io/en/stable/extensions/collapse.html>`_.
 To reuse guide sections, enable `sphinx-section-include <https://github.com/adamtheturtle/sphinx-section-include>`_.
