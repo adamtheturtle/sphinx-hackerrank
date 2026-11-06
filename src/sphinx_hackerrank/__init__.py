@@ -8,9 +8,14 @@ from sphinx.config import Config
 from sphinx.util.typing import ExtensionMetadata
 
 from sphinx_hackerrank.builder import HackerRankBuilder
-from sphinx_hackerrank.exports import GuidelineExport
+from sphinx_hackerrank.exports import (
+    GuidelineExportDirective,
+    GuidelineExportNode,
+    HackerRankDomain,
+)
+from sphinx_hackerrank.writer import depart_export, visit_export
 
-__all__ = ["GuidelineExport"]
+__all__ = ["GuidelineExportNode"]
 
 __version__ = version(distribution_name="sphinx-hackerrank")
 
@@ -27,12 +32,9 @@ def setup(app: Sphinx) -> ExtensionMetadata:
     """Register portable HTML export and its scoped styles."""
     _ = app.connect(event="config-inited", callback=_add_static_path)
     app.add_css_file(filename="interviewer_guideline.css")
-    app.add_config_value(
-        name="hackerrank_exports",
-        default=[],
-        rebuild="html",
-        types=list,
-    )
+    app.add_node(node=GuidelineExportNode, html=(visit_export, depart_export))
+    app.add_directive(name="hackerrank-export", cls=GuidelineExportDirective)
+    app.add_domain(domain=HackerRankDomain)
     app.add_config_value(
         name="hackerrank_source_url",
         default=None,
@@ -54,6 +56,7 @@ def setup(app: Sphinx) -> ExtensionMetadata:
     app.add_builder(builder=HackerRankBuilder)
     return {
         "version": __version__,
+        "env_version": 1,
         "parallel_read_safe": True,
         "parallel_write_safe": True,
     }

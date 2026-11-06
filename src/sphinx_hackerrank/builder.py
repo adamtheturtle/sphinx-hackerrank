@@ -4,16 +4,16 @@ import posixpath
 from collections.abc import Iterator
 from html import escape
 from pathlib import Path
-from typing import Any, override
+from typing import override
 from urllib.parse import quote
 
 from sphinx.builders.html import StandaloneHTMLBuilder
 
-from sphinx_hackerrank.exports import GuidelineExport, group_exports
+from sphinx_hackerrank.exports import Export, export_inventory
 from sphinx_hackerrank.html import render_fragment
 
 
-def _preview_link(*, export: GuidelineExport) -> str:
+def _preview_link(*, export: Export) -> str:
     """Link to a caller-chosen output from the preview directory."""
     href = escape(
         s=posixpath.relpath(
@@ -30,32 +30,13 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
     name = "hackerrank"
     format = "html"
 
-    # Sphinx calls init() from its constructor.
-    _last_exports: dict[str, list[GuidelineExport]]  # pyrefly: ignore[uninitialized-instance-variable]
-
-    @override
-    def init(self) -> None:
-        """Validate explicit export requests before writing output."""
-        super().init()
-        self._last_exports = self._exports()
-
-    def _exports(self) -> dict[str, list[GuidelineExport]]:
-        """Read the caller's current explicit export requests."""
-        return group_exports(
-            source_dir=Path(self.srcdir),
-            exports=self.config.hackerrank_exports,
-        )
-
     @override
     def get_outdated_docs(self) -> Iterator[str]:
         """Rebuild missing fragments and changed export requests or
         presentation.
         """
-        exports = self._exports()
+        exports = export_inventory(env=self.env)
         outdated = set(super().get_outdated_docs())
-        if exports != self._last_exports:
-            outdated.update(exports)
-        self._last_exports = exports
         if not (
             Path(self.outdir) / "interviewer-guidelines" / "index.html"
         ).is_file():
@@ -66,6 +47,8 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
                 for path in (
                     Path(__file__),
                     Path(__file__).with_name(name="html.py"),
+                    Path(__file__).with_name(name="exports.py"),
+                    Path(__file__).with_name(name="writer.py"),
                     Path(__file__).parent
                     / "static"
                     / "interviewer_guideline.css",
@@ -82,45 +65,27 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
                 outdated.add(docname)
         return iter(sorted(outdated))
 
-    @override
-    def handle_page(
-        self,
-        pagename: str,
-        # Sphinx supplies an open-ended template context.
-        addctx: dict[str, Any],  # pyrefly: ignore[explicit-any]
-        templatename: str = "page.html",
-        *,
-        outfilename: Path | None = None,
-        event_arg: object = None,
-    ) -> None:
-        """Export the rendered body before the HTML theme adds chrome."""
-        for target in self._exports().get(pagename, []):
-            output_path = Path(self.outdir) / target.output_path
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            _ = output_path.write_text(
-                data=render_fragment(
-                    html=addctx["body"],
-                    selector=target.selector,
-                    output_path=target.output_path,
-                    docname=pagename,
-                    source_url=self.config.hackerrank_source_url,
-                    source_suffix=self.config.hackerrank_source_suffix,
-                    source_anchors=self.config.hackerrank_source_anchors,
-                    image_paths={
-                        posixpath.join(
-                            self.imgpath, quote(string=filename)
-                        ): Path(self.srcdir) / source
-                        for source, filename in self.images.items()
-                    },
-                ),
-                encoding="utf-8",
-            )
-        super().handle_page(
-            pagename=pagename,
-            addctx=addctx,
-            templatename=templatename,
-            outfilename=outfilename,
-            event_arg=event_arg,
+    def write_fragment(self, *, export: Export, html: str) -> None:
+        """Write a node captured by Sphinx's native HTML translator."""
+        output_path = Path(self.outdir) / export.output_path
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        _ = output_path.write_text(
+            data=render_fragment(
+                html=html,
+                output_path=export.output_path,
+                docname=self.current_docname,
+                source_url=self.config.hackerrank_source_url,
+                source_suffix=self.config.hackerrank_source_suffix,
+                source_anchors=self.config.hackerrank_source_anchors,
+                image_paths={
+                    posixpath.join(self.imgpath, quote(string=filename)): Path(
+                        self.srcdir
+                    )
+                    / source
+                    for source, filename in self.images.items()
+                },
+            ),
+            encoding="utf-8",
         )
 
     @override
@@ -129,10 +94,11 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
         super().finish()
         preview_dir = Path(self.outdir) / "interviewer-guidelines"
         preview_dir.mkdir(parents=True, exist_ok=True)
+        exports = export_inventory(env=self.env)
         links = "\n".join(
             _preview_link(export=target)
-            for targets in self._exports().values()
-            for target in targets
+            for docname in sorted(exports)
+            for target in exports[docname]
         )
         _ = (preview_dir / "index.html").write_text(
             data=(
@@ -152,4 +118,3 @@ class HackerRankBuilder(StandaloneHTMLBuilder):
             ),
             encoding="utf-8",
         )
-        self._last_exports = self._exports()

@@ -1,7 +1,8 @@
 Widget review
 =============
 
-.. container:: hr-interviewer-guideline
+.. hackerrank-export:: interviewer-guidelines/topics/widgets/guide.html
+   :name: Widget review
 
    See the `full guide <widgets.html>`_.
 

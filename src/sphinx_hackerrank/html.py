@@ -14,7 +14,6 @@ from bs4 import BeautifulSoup, Tag
 def render_fragment(
     *,
     html: str,
-    selector: str,
     output_path: str,
     docname: str = "interviewer-guideline",
     source_url: str | None = None,
@@ -22,18 +21,9 @@ def render_fragment(
     source_anchors: bool = True,
     image_paths: Mapping[str, Path] | None = None,
 ) -> str:
-    """Extract a selected guide, retaining exact code and portable
-    links.
-    """
+    """Make an already-rendered export portable, retaining exact code."""
     soup = BeautifulSoup(markup=html, features="html.parser")
-    containers = soup.select(selector=selector)
-    if len(containers) != 1:
-        message = (
-            f"Expected one Interviewer Guideline for {selector!r}, "
-            f"found {len(containers)}"
-        )
-        raise ValueError(message)
-    container = containers[0]
+    container = soup
     _embed_images(
         container=container,
         image_paths={} if image_paths is None else image_paths,
@@ -72,6 +62,7 @@ def render_fragment(
         _ = pre.append(tag=code)
     fragment = (
         str(object=container)
+        .strip()
         .encode(encoding="ascii", errors="xmlcharrefreplace")
         .decode(encoding="ascii")
     )
