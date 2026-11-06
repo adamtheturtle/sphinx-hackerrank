@@ -305,24 +305,35 @@ exclude = [ ".venv" ]
 # Ideally we would limit the paths to the source code where we want to ignore names,
 # but Vulture does not enable this.
 ignore_names = [
+    # Sphinx builder and translator interfaces consumed by the framework.
+    "add_permalinks",
+    "allow_parallel",
     # Sphinx configuration
     "autoclass_content",
     "autoclass_content",
     "autodoc_member_order",
     # Sphinx Domain hooks and attributes called by the framework.
     "check_consistency",
+    "compact_lists",
     "contnode",
+    "default_translator_class",
+    "dlpath",
+    "download_support",
     # Sphinx and BeautifulSoup attributes read by their respective frameworks.
     "exclude_patterns",
     "extensions",
+    "fignumbers",
     "final_argument_whitespace",
+    "finish",
     # pytest fixtures - we name fixtures like this for this purpose
     "fixture_*",
     "format",
     "fromdocname",
+    "get_outdated_docs",
     "hackerrank_*",
     # Sphinx variables
     "has_content",
+    "highlighter",
     "html_show_copyright",
     "html_show_sourcelink",
     "html_show_sphinx",
@@ -330,6 +341,7 @@ ignore_names = [
     "html_theme_options",
     "html_title",
     "htmlhelp_basename",
+    "init",
     "initial_data",
     "intersphinx_mapping",
     "label",
@@ -353,12 +365,20 @@ ignore_names = [
     "resolve_any_xref",
     "rst_prolog",
     "run",
+    "secnumbers",
+    "section_level",
     "setup",
     "source_suffix",
     "spelling_word_list_filename",
     "string",
+    "supported_data_uri_images",
+    "supported_image_types",
+    "supported_remote_images",
     "templates_path",
+    "typ",
     "warning_is_error",
+    "write_doc",
+    "write_doc_serialized",
 ]
 
 [tool.pyproject-fmt]

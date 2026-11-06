@@ -1,28 +1,36 @@
-"""Capture export boundaries during Sphinx's native HTML traversal."""
+"""Render a resolved export boundary with Sphinx's HTML translator."""
 
+from docutils import nodes
+from sphinx.builders import Builder
 from sphinx.writers.html5 import HTML5Translator
 
-from sphinx_hackerrank.builder import HackerRankBuilder
 from sphinx_hackerrank.exports import GuidelineExportNode
 
 
 def visit_export(
     translator: HTML5Translator, node: GuidelineExportNode
 ) -> None:
-    """Mark the start of this boundary in Sphinx's native HTML output."""
-    node["html_start"] = len(translator.body)
+    """Render the export as a standard styled container."""
     translator.visit_container(node=node)
 
 
 def depart_export(
     translator: HTML5Translator, node: GuidelineExportNode
 ) -> None:
-    """Retain the page's container and export its fully rendered HTML."""
+    """Close the container without capturing a whole-page rendering."""
     translator.depart_container(node=node)
-    builder = translator.builder
-    assert isinstance(builder, HackerRankBuilder)
-    builder.write_fragment(
-        export=node.export,
-        html="".join(translator.body[node["html_start"] :]),
-    )
-    del node["html_start"]
+
+
+def render_export(
+    *, builder: Builder, document: nodes.document, node: GuidelineExportNode
+) -> str:
+    """Visit only the export, preserving its original document context."""
+    translator = builder.create_translator(document, builder)
+    assert isinstance(translator, HTML5Translator)
+    parent = node.parent
+    while parent is not None:
+        if isinstance(parent, nodes.section):
+            translator.section_level += 1
+        parent = parent.parent
+    _ = node.walkabout(visitor=translator)
+    return "".join(translator.body)

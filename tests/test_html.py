@@ -4,11 +4,18 @@ import textwrap
 from base64 import b64decode
 from collections.abc import Callable
 from pathlib import Path
+from typing import override
 
 import pytest
 from bs4 import BeautifulSoup
+from docutils import nodes
+from sphinx.builders.html import StandaloneHTMLBuilder
+from sphinx.ext.mathjax import html_visit_displaymath, html_visit_math
 from sphinx.testing.util import SphinxTestApp
+from sphinx.util.docutils import SphinxDirective
 
+from sphinx_hackerrank import GuidelineExportNode
+from sphinx_hackerrank.builder import HackerRankBuilder
 from sphinx_hackerrank.html import render_fragment
 from tests.builds import build_expected, write_sources
 
@@ -61,8 +68,17 @@ def test_builder_matches_html_builder(
                   `Local <#local>`_
                   `PDF <data.pdf>`_
 
-                  .. image:: pixel.svg
+                  Inline :math:`x^2`.
+
+                  .. math::
+
+                     x^2
+
+                  .. figure:: pixel.svg
                      :alt: Example image
+                     :name: example-figure
+
+                     A numbered diagram.
 
                   .. code-block:: text
                      :linenos:
@@ -81,7 +97,10 @@ def test_builder_matches_html_builder(
         make_app=make_app,
         source=tmp_path / "expected",
         files=files,
-        confoverrides={"html_context": {"builder": "hackerrank"}},
+        confoverrides={
+            "html_context": {"builder": "hackerrank"},
+            "numfig": True,
+        },
         docnames=["index", "topics/widgets", docname],
     )
     source = tmp_path / "actual"
@@ -101,16 +120,15 @@ def test_builder_matches_html_builder(
         exception_on_warning=True,
         confoverrides={
             "extensions": ["sphinx_hackerrank", "sphinx_toolbox.collapse"],
+            "numfig": True,
             "hackerrank_source_url": source_url,
             "hackerrank_source_suffix": ".rst",
             "hackerrank_source_anchors": anchors,
         },
     )
     app.build()
-    for name, html in expected.items():
-        assert (Path(app.outdir) / f"{name}.html").read_text(
-            encoding="utf-8"
-        ) == html
+    assert not (Path(app.outdir) / (docname + ".html")).exists()
+    assert not (Path(app.outdir) / "index.html").exists()
     # Export the independently built native page through the same public API.
     exported = (
         Path(app.outdir) / "interviewer-guidelines/topics/widgets/guide.html"
@@ -153,6 +171,12 @@ def test_builder_matches_html_builder(
     assert (
         b64decode(s=str(object=picture["src"]).split(sep=",", maxsplit=1)[1])
         == image.read_bytes()
+    )
+
+    app.config.hackerrank_source_url = "https://new.example/source/"
+    app.build()
+    assert (
+        "https://new.example/source/topics/widgets.rst" in fragment.read_text()
     )
 
 
@@ -226,3 +250,173 @@ def test_missing_or_unsupported_image_fails(
             output_path="exports/review.html",
             image_paths={filename: image} if suffix is not None else None,
         )
+
+
+class OutsideOnlyNode(nodes.General, nodes.Element):
+    """An intentionally unsupported node outside the export boundary."""
+
+
+class OutsideOnlyDirective(SphinxDirective):
+    """Insert a node that would fail if the entire page were rendered."""
+
+    @override
+    def run(self) -> list[nodes.Node]:
+        """Return an unsupported node without adding an HTML handler."""
+        return [OutsideOnlyNode()]
+
+
+def test_only_export_nodes_are_rendered(
+    *, make_app: Callable[..., SphinxTestApp], tmp_path: Path
+) -> None:
+    """No website, theme, asset bundle, or outside HTML visitor is
+    needed.
+    """
+    source = tmp_path / "source"
+    write_sources(
+        source=source,
+        files={
+            "index.rst": (
+                "Index\n=====\n\n.. toctree::\n\n   outside\n\n"
+                ".. outside-only::\n\n"
+                ".. hackerrank-export:: exports/review.html\n"
+                "   :name: Review\n\n   Exported content.\n"
+            ),
+            "outside.rst": "Outside\n=======\n\n.. outside-only::\n",
+        },
+    )
+    app = make_app(
+        srcdir=source,
+        buildername="hackerrank",
+        exception_on_warning=True,
+        confoverrides={
+            "extensions": ["sphinx_hackerrank"],
+            "html_theme": "missing-theme",
+        },
+    )
+    app.add_node(node=OutsideOnlyNode)
+    app.add_directive(name="outside-only", cls=OutsideOnlyDirective)
+    app.build()
+    output = Path(app.outdir)
+    assert "Exported content" in (output / "exports/review.html").read_text()
+    files = {
+        path.relative_to(output).as_posix()
+        for path in output.rglob(pattern="*")
+        if path.is_file()
+    }
+    assert files == {
+        "exports/review.html",
+        "interviewer-guidelines/index.html",
+    }
+    assert app.warning.getvalue() == ""
+
+
+class SectionExportDirective(SphinxDirective):
+    """Prepare identical section content for native and export writers."""
+
+    has_content = True
+    required_arguments = 1
+
+    @override
+    def run(self) -> list[nodes.Node]:
+        """Allow nested section nodes inside the explicit boundary."""
+        wrapper = (
+            GuidelineExportNode(output_path="exports/inner.html", name="Inner")
+            if self.arguments[0] == "hackerrank"
+            else nodes.container(classes=["hr-interviewer-guideline"])
+        )
+        _ = self.state.nested_parse(
+            block=self.content,
+            input_offset=self.content_offset,
+            node=wrapper,
+            match_titles=True,
+        )
+        return [wrapper]
+
+
+def test_section_context_matches_native_html(
+    *, make_app: Callable[..., SphinxTestApp], tmp_path: Path
+) -> None:
+    """An isolated section retains its original heading depth and
+    anchors.
+    """
+    outputs: list[str] = []
+    for builder in ("html", "hackerrank"):
+        source = tmp_path / builder
+        write_sources(
+            source=source,
+            files={
+                "index.rst": (
+                    "Document\n========\n\nOuter\n-----\n\n"
+                    f".. section-export:: {builder}\n\n"
+                    "   Inner\n   ~~~~~\n\n   Section content.\n"
+                )
+            },
+        )
+        app = make_app(
+            srcdir=source,
+            buildername=builder,
+            exception_on_warning=True,
+            confoverrides={"extensions": ["sphinx_hackerrank"]},
+        )
+        app.add_directive(name="section-export", cls=SectionExportDirective)
+        app.build()
+        output = Path(app.outdir)
+        if builder == "html":
+            soup = BeautifulSoup(
+                markup=(output / "index.html").read_text(),
+                features="html.parser",
+            )
+            node = soup.select_one(selector=".hr-interviewer-guideline")
+            assert node is not None
+            outputs.append(
+                render_fragment(
+                    html=str(object=node),
+                    output_path="exports/inner.html",
+                    docname="index",
+                )
+            )
+        else:
+            outputs.append((output / "exports/inner.html").read_text())
+        app.cleanup()
+    assert outputs[0] == outputs[1]
+    assert "<h3>Inner" in outputs[1]
+
+
+@pytest.mark.parametrize(
+    argnames=("configured", "extra"),
+    argvalues=[(None, 0), (None, 1), (None, 2), ("mathjax", 1)],
+)
+def test_math_renderer_selection_matches_sphinx(
+    *,
+    make_app: Callable[..., SphinxTestApp],
+    tmp_path: Path,
+    configured: str | None,
+    extra: int,
+) -> None:
+    """HTML math extensions receive the same renderer selection as
+    Sphinx.
+    """
+    renderers: list[str | None] = []
+    for builder in ("html", "hackerrank"):
+        source = tmp_path / builder
+        write_sources(source=source, files={"index.rst": "Index\n=====\n"})
+        app = make_app(
+            srcdir=source,
+            buildername=builder,
+            confoverrides={
+                "extensions": ["sphinx_hackerrank"],
+                "html_math_renderer": configured,
+            },
+        )
+        for index in range(extra):
+            app.add_html_math_renderer(
+                name=f"extra-{index}",
+                inline_renderers=(html_visit_math, None),
+                block_renderers=(html_visit_displaymath, None),
+            )
+        assert isinstance(
+            app.builder, (StandaloneHTMLBuilder, HackerRankBuilder)
+        )
+        renderers.append(app.builder.math_renderer_name)
+        app.cleanup()
+    assert renderers[0] == renderers[1]

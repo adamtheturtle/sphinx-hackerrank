@@ -60,7 +60,7 @@ def setup(app: Sphinx) -> ExtensionMetadata:
     app.add_builder(builder=HackerRankBuilder)
     return {
         "version": __version__,
-        "env_version": 2,
+        "env_version": 3,
         "parallel_read_safe": True,
         "parallel_write_safe": True,
     }

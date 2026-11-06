@@ -86,6 +86,9 @@ def main() -> None:
             assert "data:image/svg+xml;base64," in fragment.read_text(
                 encoding="utf-8"
             )
+        assert not (temp / "output/index.html").exists()
+        assert not (temp / "output/_static").exists()
+        assert not (temp / "output/searchindex.js").exists()
         print("Installed-wheel build passed outside the checkout.")
 
 
