@@ -15,24 +15,7 @@ In an existing Sphinx project:
 
    pip install sphinx-hackerrank
 
-Add this to ``docs/conf.py`` (replace ``docs`` with your Sphinx source directory):
-
-.. code-block:: python
-
-   """Sphinx configuration."""
-
-   from sphinx_hackerrank import GuidelineExport
-
-   extensions = ["sphinx_hackerrank"]
-   hackerrank_exports = [
-       GuidelineExport(
-           docname="review",
-           selector=".hr-interviewer-guideline",
-           output_path="interviewer-guidelines/review.html",
-           name="Widget review",
-       ),
-   ]
-
+Add ``"sphinx_hackerrank"`` to ``extensions`` in ``docs/conf.py``.
 Create ``docs/review.rst`` and add ``review`` to your existing toctree:
 
 .. code-block:: rst
@@ -40,7 +23,8 @@ Create ``docs/review.rst`` and add ``review`` to your existing toctree:
    Widget review
    =============
 
-   .. container:: hr-interviewer-guideline
+   .. hackerrank-export:: interviewer-guidelines/review.html
+      :name: Widget review
 
       Interviewer instructions go here.
 
@@ -66,19 +50,45 @@ The standalone preview displays the exported HTML without the IDE's controls.
 Choosing content
 ----------------
 
-Each ``GuidelineExport`` specifies:
+Wrap content in ``hackerrank-export`` and give it an HTML output path relative to the build directory.
+The required ``:name:`` option supplies the preview index label.
+Each boundary is a Sphinx node carrying its destination and name.
+No CSS selector or export list is needed.
+Multiple boundaries in the same document export independently.
+Destinations must be unique and must not overwrite documentation pages or the preview index.
+The builder also produces ordinary themed documentation pages with the same content and bundled styles.
 
-* ``docname``: the RST path relative to your source directory, without ``.rst``.
-* ``selector``: a CSS selector matching exactly one container in that page.
-* ``output_path``: a unique HTML path relative to the build directory.
-* ``name``: the label shown in the preview index.
+Python extensions can construct the same boundary directly:
 
-Use the ``hr-interviewer-guideline`` container class for bundled styles.
-The builder also produces ordinary themed documentation pages.
+.. code-block:: python
+
+   """Declare an export around prepared Docutils content."""
+
+   from docutils import nodes
+
+   from sphinx_hackerrank import GuidelineExportNode
+
+   content = GuidelineExportNode(
+       output_path="interviewer-guidelines/review.html",
+       name="Widget review",
+   )
+   content += nodes.paragraph("", "Interviewer instructions go here.")
+   assert content.astext() == "Interviewer instructions go here."
+
+The HTML translator captures the boundary while rendering the full document, preserving Sphinx's resolved references and image paths.
+Export metadata is retained across incremental and parallel builds.
 
 For collapsible sections, enable `sphinx-toolbox.collapse <https://sphinx-toolbox.readthedocs.io/en/stable/extensions/collapse.html>`_.
 To reuse guide sections, enable `sphinx-section-include <https://github.com/adamtheturtle/sphinx-section-include>`_.
 See the `sample project <https://github.com/adamtheturtle/sphinx-hackerrank/tree/main/sample>`_ for both.
+
+Migrating from selector exports
+-------------------------------
+
+Replace each ``GuidelineExport`` configuration entry with a ``hackerrank-export`` directive or ``GuidelineExportNode`` around the content being exported.
+Move ``output_path`` and ``name`` to that boundary, then remove ``hackerrank_exports`` and the old ``GuidelineExport`` import.
+A separate ``docname`` and ``selector`` are no longer needed.
+CSS classes remain presentation details.
 
 Source links
 ------------

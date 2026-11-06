@@ -37,6 +37,7 @@ dynamic = [
 ]
 dependencies = [
     "beautifulsoup4>=4.15.0",
+    "docutils>=0.21.2",
     "sphinx>=9.1.1,<10",
 ]
 urls.Issues = "https://github.com/adamtheturtle/sphinx-hackerrank/issues"
@@ -308,6 +309,9 @@ ignore_names = [
     "autoclass_content",
     "autoclass_content",
     "autodoc_member_order",
+    # Sphinx Domain hooks and attributes called by the framework.
+    "check_consistency",
+    "contnode",
     # Sphinx and BeautifulSoup attributes read by their respective frameworks.
     "exclude_patterns",
     "extensions",
@@ -315,6 +319,7 @@ ignore_names = [
     # pytest fixtures - we name fixtures like this for this purpose
     "fixture_*",
     "format",
+    "fromdocname",
     "hackerrank_*",
     # Sphinx variables
     "has_content",
@@ -325,7 +330,9 @@ ignore_names = [
     "html_theme_options",
     "html_title",
     "htmlhelp_basename",
+    "initial_data",
     "intersphinx_mapping",
+    "label",
     "language",
     "linkcheck_ignore",
     "linkcheck_retries",
@@ -335,6 +342,7 @@ ignore_names = [
     "nitpicky",
     "option_spec",
     "optional_arguments",
+    "process_doc",
     "project",
     "project_copyright",
     "pygments_style",
@@ -342,6 +350,7 @@ ignore_names = [
     "pytest_collect_file",
     "pytest_plugins",
     "required_arguments",
+    "resolve_any_xref",
     "rst_prolog",
     "run",
     "setup",

@@ -9,7 +9,6 @@ import pytest
 from bs4 import BeautifulSoup
 from sphinx.testing.util import SphinxTestApp
 
-from sphinx_hackerrank import GuidelineExport
 from sphinx_hackerrank.html import render_fragment
 from tests.builds import build_expected, write_sources
 
@@ -27,7 +26,7 @@ def test_builder_matches_html_builder(
 ) -> None:
     """Compare pages and exported fragments to a native HTML build."""
     docname = "topics/widgets-interviewer-guideline"
-    classes = "hr-interviewer-guideline selected-guide"
+    classes = "hr-interviewer-guideline"
     files = {
         "index.rst": textwrap.dedent(
             text="""\
@@ -57,6 +56,7 @@ def test_builder_matches_html_builder(
                   A participant\u2019s example.
 
                   `Guide <widgets.html#part-1>`_
+                  :any:`widgets`
                   `External <https://example.org>`_
                   `Local <#local>`_
                   `PDF <data.pdf>`_
@@ -85,21 +85,22 @@ def test_builder_matches_html_builder(
         docnames=["index", "topics/widgets", docname],
     )
     source = tmp_path / "actual"
-    write_sources(source=source, files=files)
+    actual_files = {
+        name: content.replace(
+            f".. container:: {classes}",
+            ".. hackerrank-export:: "
+            "interviewer-guidelines/topics/widgets/guide.html\n"
+            "   :name: Example",
+        )
+        for name, content in files.items()
+    }
+    write_sources(source=source, files=actual_files)
     app = make_app(
         srcdir=source,
         buildername="hackerrank",
         exception_on_warning=True,
         confoverrides={
             "extensions": ["sphinx_hackerrank", "sphinx_toolbox.collapse"],
-            "hackerrank_exports": [
-                GuidelineExport(
-                    docname=docname,
-                    selector=".selected-guide",
-                    output_path="interviewer-guidelines/topics/widgets/guide.html",
-                    name="Example",
-                )
-            ],
             "hackerrank_source_url": source_url,
             "hackerrank_source_suffix": ".rst",
             "hackerrank_source_anchors": anchors,
@@ -115,8 +116,11 @@ def test_builder_matches_html_builder(
         Path(app.outdir) / "interviewer-guidelines/topics/widgets/guide.html"
     ).read_text(encoding="utf-8")
     assert exported == render_fragment(
-        html=expected[docname],
-        selector=".selected-guide",
+        html=str(
+            object=BeautifulSoup(
+                markup=expected[docname], features="html.parser"
+            ).select_one(selector=".hr-interviewer-guideline")
+        ),
         output_path="interviewer-guidelines/topics/widgets/guide.html",
         docname=docname,
         source_url=source_url,
@@ -152,56 +156,6 @@ def test_builder_matches_html_builder(
     )
 
 
-@pytest.mark.parametrize(argnames="containers", argvalues=[0, 2])
-def test_invalid_container(
-    *,
-    make_app: Callable[..., SphinxTestApp],
-    tmp_path: Path,
-    containers: int,
-) -> None:
-    """Reject RST without exactly one matching language container."""
-    source = tmp_path / "source"
-    write_sources(
-        source=source,
-        files={
-            "index.rst": "Index\n=====\n",
-            "index-interviewer-guideline.rst": (
-                "Interviewer Guideline\n=====================\n\n"
-                + textwrap.dedent(
-                    text="""\
-                    .. container:: selected-guide
-
-                       Example.
-
-                    """
-                )
-                * containers
-            ),
-        },
-    )
-    app = make_app(
-        srcdir=source,
-        buildername="hackerrank",
-        confoverrides={
-            "extensions": ["sphinx_hackerrank"],
-            "suppress_warnings": ["toc.not_included"],
-            "hackerrank_exports": [
-                GuidelineExport(
-                    docname="index-interviewer-guideline",
-                    selector=".selected-guide",
-                    output_path="interviewer-guidelines/example.html",
-                    name="Example",
-                )
-            ],
-        },
-    )
-    with pytest.raises(
-        expected_exception=ValueError,
-        match="Expected one Interviewer Guideline",
-    ):
-        app.build()
-
-
 @pytest.mark.parametrize(
     argnames="uri", argvalues=["picture.svg", "picture.svg#part"]
 )
@@ -226,7 +180,6 @@ def test_embedded_images_preserve_bytes_and_fragments(
     result = BeautifulSoup(
         markup=render_fragment(
             html=html,
-            selector=".guide",
             output_path="exports/review.html",
             image_paths={"picture.svg": image},
         ),
@@ -270,7 +223,6 @@ def test_missing_or_unsupported_image_fails(
     ):
         _ = render_fragment(
             html=f'<div class="guide"><img src="{filename}"></div>',
-            selector=".guide",
             output_path="exports/review.html",
             image_paths={filename: image} if suffix is not None else None,
         )
