@@ -112,3 +112,40 @@ MIT licensed.
    :target: https://github.com/adamtheturtle/sphinx-hackerrank/actions
 .. |PyPI| image:: https://badge.fury.io/py/sphinx-hackerrank.svg
    :target: https://badge.fury.io/py/sphinx-hackerrank
+
+Complete API publishing
+-----------------------
+
+Requires Python 3.13 or later.
+The explicit ``hackerrank-publish`` builder exports guidelines and then executes ``hackerrank_api_operations`` in order using the HackerRank SDK.
+Ordinary ``html`` and ``hackerrank`` builds remain offline.
+Every documented v3, ATS and SCIM operation is available.
+An empty publishing plan exports the operation catalogue without credentials.
+
+Configure a plan in ``conf.py``:
+
+.. code-block:: python
+
+   """Configure explicit API publishing."""
+
+   hackerrank_api_operations = [
+       {
+           "operation": "api_update_question",
+           "path_parameters": {"question_id": "123456"},
+           "body": {
+               "name": "Widget review",
+               "problem_statement": "Review the implementation.",
+               "type": "code",
+           },
+           "body_files": {"internal_notes": "interviewer-guidelines/review.html"},
+       },
+   ]
+
+Run ``sphinx-build -W -b hackerrank-publish docs build/hackerrank``.
+``body_files`` reads UTF-8 exports from inside the build directory and inserts that exact text into the request body.
+All operations and files are validated before any request is sent.
+Use ``HACKERRANK_API_TOKEN`` for v3 operations and a separate ``HACKERRANK_SCIM_API_TOKEN`` for SCIM provisioning.
+The builder writes ``hackerrank-api-results.json`` and ``hackerrank-api-catalogue.json`` with complete responses and request schemas.
+
+This branch temporarily pins the SDK commit from `hackerrank PR 515 <https://github.com/adamtheturtle/hackerrank/pull/515>`_.
+Replace the revision with a released dependency after the SDK is released.

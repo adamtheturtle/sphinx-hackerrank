@@ -18,7 +18,7 @@ license = { file = "LICENSE" }
 authors = [
     { name = "Adam Dangoor", email = "adamdangoor@gmail.com" },
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Web Environment",
@@ -27,7 +27,6 @@ classifiers = [
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3.15",
@@ -38,6 +37,7 @@ dynamic = [
 dependencies = [
     "beautifulsoup4>=4.15.0",
     "docutils>=0.21.2",
+    "hackerrank @ git+https://github.com/adamtheturtle/hackerrank.git@fdbf5e396e9346dbfbb6fb5686e00b71f9f4f39d",
     "sphinx>=9.1.1,<10",
 ]
 urls.Issues = "https://github.com/adamtheturtle/sphinx-hackerrank/issues"
