@@ -152,7 +152,7 @@ def test_invalid_plan_prevents_all_requests(
             environment={"HACKERRANK_API_TOKEN": "synthetic"},
             transport=transport,
         )
-    assert not transport.requests
+    assert len(transport.requests) == 0
 
 
 @pytest.mark.parametrize(
@@ -169,7 +169,7 @@ def test_missing_credentials(operation: str, tmp_path: Path) -> None:
             environment={},
             transport=transport,
         )
-    assert not transport.requests
+    assert len(transport.requests) == 0
 
 
 def test_scim_only_and_api_failure(tmp_path: Path) -> None:
@@ -199,9 +199,10 @@ def test_empty_plan_is_offline(tmp_path: Path) -> None:
     """An explicit publish build with no operations needs no
     credentials.
     """
-    assert not publish_operations(
+    result = publish_operations(
         operations=[], export_root=tmp_path, environment={}, transport=None
     )
+    assert len(result) == 0
 
 
 def test_normal_and_publish_builders(tmp_path: Path) -> None:
