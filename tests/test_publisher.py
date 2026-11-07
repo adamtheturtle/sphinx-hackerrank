@@ -1,6 +1,6 @@
 """Verify explicit API publishing and credential-free ordinary builds."""
 
-import json
+import json as jsonlib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -152,7 +152,7 @@ def test_invalid_plan_prevents_all_requests(
             environment={"HACKERRANK_API_TOKEN": "synthetic"},
             transport=transport,
         )
-    assert transport.requests == []
+    assert not transport.requests
 
 
 @pytest.mark.parametrize(
@@ -169,7 +169,7 @@ def test_missing_credentials(operation: str, tmp_path: Path) -> None:
             environment={},
             transport=transport,
         )
-    assert transport.requests == []
+    assert not transport.requests
 
 
 def test_scim_only_and_api_failure(tmp_path: Path) -> None:
@@ -199,11 +199,8 @@ def test_empty_plan_is_offline(tmp_path: Path) -> None:
     """An explicit publish build with no operations needs no
     credentials.
     """
-    assert (
-        publish_operations(
-            operations=[], export_root=tmp_path, environment={}, transport=None
-        )
-        == []
+    assert not publish_operations(
+        operations=[], export_root=tmp_path, environment={}, transport=None
     )
 
 
@@ -242,12 +239,12 @@ def test_normal_and_publish_builders(tmp_path: Path) -> None:
             assert (output / "guide.html").exists()
             if builder == "hackerrank-publish":
                 assert (
-                    json.loads(
+                    jsonlib.loads(
                         s=(output / "hackerrank-api-results.json").read_text()
                     )
                     == []
                 )
-                catalogue = json.loads(
+                catalogue = jsonlib.loads(
                     s=(output / "hackerrank-api-catalogue.json").read_text()
                 )
                 assert len(catalogue["operations"]) == len(api_operations())
