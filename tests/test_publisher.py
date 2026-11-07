@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import BinaryIO, override
 
 import pytest
+import respx
 from hackerrank.api import api_operations
 from hackerrank.transports import Transport, TransportResponse
 from hackerrank.types import JSONValue
@@ -15,6 +16,66 @@ from sphinx.testing.util import SphinxTestApp
 
 from sphinx_hackerrank.publisher import publish_operations
 from tests.builds import write_sources
+
+
+def test_template_results_file_preserves_wire_data(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Build results through the default SDK transport without type
+    loss.
+    """
+    monkeypatch.setenv(name="HACKERRANK_API_TOKEN", value="synthetic")
+    base = "https://www.hackerrank.com/x/api/v3/interview_templates"
+    templates = [
+        {"id": "101", "name": "First", "questions": [201]},
+        {"id": "102", "name": "Selected", "questions": [202, 203]},
+    ]
+    page = {
+        "data": templates,
+        "next": f"{base}?offset=2&limit=2",
+        "total": 3,
+        "page_total": 2,
+        "offset": 0,
+        "extra": {"preserved": True},
+    }
+    source = tmp_path / "source"
+    write_sources(source=source, files={"index.rst": "Example\n=======\n"})
+    app = SphinxTestApp(
+        srcdir=source,
+        buildername="hackerrank-publish",
+        builddir=tmp_path / "build",
+        confoverrides={
+            "extensions": ["sphinx_hackerrank"],
+            "hackerrank_api_operations": [
+                {
+                    "operation": "api_list_all_interview_templates",
+                    "query": {"limit": 2},
+                },
+                {
+                    "operation": "api_show_interview_template",
+                    "path_parameters": {"template_id": "102"},
+                },
+            ],
+        },
+    )
+    try:
+        with respx.mock(assert_all_called=True) as router:
+            _ = router.get(url=base, params={"limit": "2"}).respond(
+                status_code=200, json=page
+            )
+            _ = router.get(url=f"{base}/102").respond(
+                status_code=200, json=templates[1]
+            )
+            app.build()
+        assert app.statuscode == 0
+        results = jsonlib.loads(
+            s=(Path(app.outdir) / "hackerrank-api-results.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        assert [result["data"] for result in results] == [page, templates[1]]
+    finally:
+        app.cleanup()
 
 
 @dataclass
