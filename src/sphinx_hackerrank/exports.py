@@ -203,7 +203,7 @@ def native_export_containers(
     app: Sphinx, doctree: nodes.document, _docname: str
 ) -> None:
     """Give other writers standard containers in the resolved tree."""
-    if app.builder.name == "hackerrank":
+    if app.builder.name in {"hackerrank", "hackerrank-publish"}:
         return
     for node in list(doctree.findall(condition=GuidelineExportNode)):
         container = nodes.container(

@@ -1,6 +1,9 @@
 Docutils
+SDK
+SDK's
 admin
 beartype
+catalogue
 changelog
 conf
 doctrees
