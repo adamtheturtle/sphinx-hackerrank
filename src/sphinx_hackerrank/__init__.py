@@ -14,6 +14,7 @@ from sphinx_hackerrank.exports import (
     HackerRankDomain,
     native_export_containers,
 )
+from sphinx_hackerrank.publisher import HackerRankPublishBuilder
 from sphinx_hackerrank.writer import depart_export, visit_export
 
 __all__ = ["GuidelineExportNode"]
@@ -58,6 +59,13 @@ def setup(app: Sphinx) -> ExtensionMetadata:
         types=bool,
     )
     app.add_builder(builder=HackerRankBuilder)
+    app.add_builder(builder=HackerRankPublishBuilder)
+    app.add_config_value(
+        name="hackerrank_api_operations",
+        default=[],
+        rebuild="html",
+        types=list,
+    )
     return {
         "version": __version__,
         "env_version": 3,
