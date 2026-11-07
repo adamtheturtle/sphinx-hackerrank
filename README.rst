@@ -147,5 +147,4 @@ All operations and files are validated before any request is sent.
 Use ``HACKERRANK_API_TOKEN`` for v3 operations and a separate ``HACKERRANK_SCIM_API_TOKEN`` for SCIM provisioning.
 The builder writes ``hackerrank-api-results.json`` and ``hackerrank-api-catalogue.json`` with complete responses and request schemas.
 
-This branch temporarily pins the SDK commit from `hackerrank PR 515 <https://github.com/adamtheturtle/hackerrank/pull/515>`_.
-Replace the revision with a released dependency after the SDK is released.
+The publishing builder requires ``hackerrank>=2026.11.7``.

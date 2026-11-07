@@ -62,7 +62,7 @@ Tests are run on GitHub Actions.
 The configuration is in ``.github/workflows/``.
 CI builds the sample with serial and parallel Sphinx readers, runs tests with 100% branch coverage, and builds distributions.
 It also installs the wheel and builds the sample outside the checkout.
-The test matrix covers Python 3.12 through 3.15 on Ubuntu and Windows with highest and lowest direct dependencies.
+The test matrix covers Python 3.13 through 3.15 on Ubuntu and Windows with highest and lowest direct dependencies.
 
 Run the sample and packaging checks locally:
 
