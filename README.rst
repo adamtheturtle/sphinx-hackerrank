@@ -144,7 +144,9 @@ Configure a plan in ``conf.py``:
 Run ``sphinx-build -W -b hackerrank-publish docs build/hackerrank``.
 ``body_files`` reads UTF-8 exports from inside the build directory and inserts that exact text into the request body.
 All operations and files are validated before any request is sent.
+Question writes use the SDK's shared validation for AI prompts, including prompts read from exported files.
+A known unsupported question type or an overlong prompt prevents the entire plan from publishing.
 Use ``HACKERRANK_API_TOKEN`` for v3 operations and a separate ``HACKERRANK_SCIM_API_TOKEN`` for SCIM provisioning.
 The builder writes ``hackerrank-api-results.json`` and ``hackerrank-api-catalogue.json`` with complete responses and request schemas.
 
-The publishing builder requires ``hackerrank>=2026.11.7``.
+The publishing builder requires ``hackerrank>=2026.11.10``.

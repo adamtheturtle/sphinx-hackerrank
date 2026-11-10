@@ -205,6 +205,37 @@ def test_empty_plan_is_offline(tmp_path: Path) -> None:
     assert len(result) == 0
 
 
+@pytest.mark.parametrize(
+    argnames="question_type", argvalues=["code", "whiteboard", "mcq"]
+)
+@pytest.mark.parametrize(argnames="from_export", argvalues=[False, True])
+def test_invalid_question_prompt_prevents_all_publishing(
+    *, tmp_path: Path, question_type: str, from_export: bool
+) -> None:
+    """The SDK validates question capabilities before any plan is sent."""
+    transport = PublishingTransport(status=200, requests=[])
+    plan: dict[str, JSONValue] = {
+        "operation": "api_update_question",
+        "path_parameters": {"question_id": "1"},
+        "body": {"type": question_type, "custom_system_prompt": "Hints"},
+    }
+    if from_export:
+        _ = (tmp_path / "prompt.md").write_text(data="Hints", encoding="utf-8")
+        plan["body"] = {"type": question_type}
+        plan["body_files"] = {"custom_system_prompt": "prompt.md"}
+    with pytest.raises(expected_exception=ValueError, match="not supported"):
+        _ = publish_operations(
+            operations=[
+                {"operation": "api_list_all_tests"},
+                plan,
+            ],
+            export_root=tmp_path,
+            environment={},
+            transport=transport,
+        )
+    assert len(transport.requests) == 0
+
+
 def test_normal_and_publish_builders(tmp_path: Path) -> None:
     """Ordinary exports ignore API plans; the explicit builder writes
     catalogue/results.
