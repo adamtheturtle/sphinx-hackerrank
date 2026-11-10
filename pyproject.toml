@@ -37,7 +37,7 @@ dynamic = [
 dependencies = [
     "beautifulsoup4>=4.15.0",
     "docutils>=0.21.2",
-    "hackerrank>=2026.11.7",
+    "hackerrank>=2026.11.10",
     "sphinx>=9.1.1,<10",
 ]
 urls.Issues = "https://github.com/adamtheturtle/sphinx-hackerrank/issues"
