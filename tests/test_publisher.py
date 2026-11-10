@@ -233,7 +233,7 @@ def test_invalid_question_prompt_prevents_all_publishing(
             environment={},
             transport=transport,
         )
-    assert not transport.requests
+    assert len(transport.requests) == 0
 
 
 def test_normal_and_publish_builders(tmp_path: Path) -> None:
