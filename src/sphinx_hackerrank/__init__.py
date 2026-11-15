@@ -19,7 +19,7 @@ from sphinx_hackerrank.writer import depart_export, visit_export
 
 __all__ = ["GuidelineExportNode"]
 
-__version__ = version(distribution_name="sphinx-hackerrank")
+__version__: str = version(distribution_name="sphinx-hackerrank")
 
 
 def _add_static_path(_app: Sphinx, config: Config) -> None:
