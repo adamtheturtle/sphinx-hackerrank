@@ -78,7 +78,7 @@ dev = [
     "sphinx-lint==1.0.2",
     "sphinx-section-include==2026.11.2.5",
     "sphinx-toolbox==4.3.1",
-    "strict-kwargs==2026.10.9",
+    "strict-kwargs==2026.11.14",
     "towncrier==26.9.0",
     "ty==0.0.104",
     "types-docutils==0.23.0.20261107",
