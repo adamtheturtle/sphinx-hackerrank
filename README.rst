@@ -52,8 +52,7 @@ Choosing content
 
 Wrap content in ``hackerrank-export`` and give it an HTML output path relative to the build directory.
 The required ``:name:`` option supplies the preview index label.
-Each boundary is a Sphinx node carrying its destination and name.
-No CSS selector or export list is needed.
+Each boundary is a Sphinx node with a destination and a name.
 Multiple boundaries in the same document export independently.
 Destinations must be unique and must not overwrite documentation pages or the preview index.
 The ``hackerrank`` builder writes only the standalone exports and their preview index.
@@ -143,7 +142,7 @@ Configure a plan in ``conf.py``:
 
 Run ``sphinx-build -W -b hackerrank-publish docs build/hackerrank``.
 ``body_files`` reads UTF-8 exports from inside the build directory and inserts that exact text into the request body.
-All operations and files are validated before any request is sent.
+The uploader validates operations and files before sending requests.
 Question writes use the SDK's shared validation for AI prompts, including prompts read from exported files.
 A known unsupported question type or an overlong prompt prevents the entire plan from publishing.
 Use ``HACKERRANK_API_TOKEN`` for v3 operations and a separate ``HACKERRANK_SCIM_API_TOKEN`` for SCIM provisioning.
