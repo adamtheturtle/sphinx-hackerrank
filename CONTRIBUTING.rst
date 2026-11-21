@@ -86,7 +86,7 @@ Perform a Release
 ~~~~~~~~~~~~~~~~~
 
 Versions come from Git tags through ``setuptools-scm``.
-The release workflow assembles release notes, commits them, tags that commit, and publishes to PyPI using the ``release`` environment.
+The workflow assembles and commits the release notes, tags the commit, and publishes to PyPI using the ``release`` environment.
 Configure the PyPI trusted publisher, set ``PYPI_PUBLISH_ENABLED`` to ``true``, and add ``RELEASE_PAT`` to that environment before dispatching a release.
 The token needs permission to update the protected default branch and is used only for the release commit.
 
@@ -111,4 +111,4 @@ Release notes
 
 Write user-facing changes as Markdown in ``newsfragments/<issue>.change.md``.
 Towncrier writes one Markdown file per version, used directly for GitHub release notes.
-Invalid fragment names fail release assembly.
+Release assembly fails if a fragment name is invalid.
