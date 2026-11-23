@@ -1,6 +1,6 @@
 """Structured export boundaries and their persistent Sphinx inventory."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 from pathlib import PurePosixPath
@@ -73,7 +73,9 @@ class GuidelineExportNode(nodes.container):
     @property
     def export(self) -> Export:
         """Read the metadata retained by Docutils copies and pickles."""
-        return Export(output_path=self["output_path"], name=self["name"])
+        output_path: str = self["output_path"]
+        name: str = self["name"]
+        return Export(output_path=output_path, name=name)
 
 
 class GuidelineExportDirective(SphinxDirective):
@@ -92,9 +94,10 @@ class GuidelineExportDirective(SphinxDirective):
         """
         self.assert_has_content()
         try:
+            name_option: str = self.options.get("name", "")
             node = GuidelineExportNode(
                 output_path=self.arguments[0],
-                name=self.options.get("name", ""),
+                name=name_option,
             )
         except ValueError as error:
             raise self.error(message=str(object=error)) from error
@@ -119,7 +122,7 @@ class HackerRankDomain(Domain):
     @property
     def exports(self) -> dict[str, list[Export]]:
         """Return the inventory stored in Sphinx's environment."""
-        exports = self.data["exports"]
+        exports: object = self.data["exports"]
         assert isinstance(exports, ExportInventory)
         return exports
 
@@ -143,7 +146,7 @@ class HackerRankDomain(Domain):
         self,
         docnames: AbstractSet[str],
         # Sphinx supplies each domain's open-ended serialized state.
-        otherdata: dict[str, Any],  # pyrefly: ignore[explicit-any]
+        otherdata: Mapping[str, object],
     ) -> None:
         """Merge inventory entries owned by parallel Sphinx readers."""
         other = otherdata["exports"]
@@ -213,5 +216,6 @@ def native_export_containers(
         container.line = node.line
         container.extend(item=node.children)
         node.replace_self(new=container)
-        for identifier in container["ids"]:
+        identifiers: list[str] = container["ids"]
+        for identifier in identifiers:
             doctree.ids[identifier] = container

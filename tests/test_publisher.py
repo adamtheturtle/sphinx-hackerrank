@@ -68,7 +68,7 @@ def test_template_results_file_preserves_wire_data(
             )
             app.build()
         assert app.statuscode == 0
-        results = jsonlib.loads(
+        results: list[dict[str, object]] = jsonlib.loads(
             s=(Path(app.outdir) / "hackerrank-api-results.json").read_text(
                 encoding="utf-8"
             )
@@ -337,7 +337,7 @@ def test_normal_and_publish_builders(tmp_path: Path) -> None:
                     )
                     == []
                 )
-                catalogue = jsonlib.loads(
+                catalogue: dict[str, list[object]] = jsonlib.loads(
                     s=(output / "hackerrank-api-catalogue.json").read_text()
                 )
                 assert len(catalogue["operations"]) == len(api_operations())

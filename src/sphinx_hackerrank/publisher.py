@@ -153,10 +153,9 @@ class HackerRankPublishBuilder(HackerRankBuilder):
         complete results.
         """
         super().finish()
+        plan: object = self.config["hackerrank_api_operations"]
         configured = parse_api_object(
-            text=json.dumps(
-                obj={"operations": self.config.hackerrank_api_operations}
-            )
+            text=json.dumps(obj={"operations": plan})
         )
         raw = configured["operations"]
         if not isinstance(raw, list):

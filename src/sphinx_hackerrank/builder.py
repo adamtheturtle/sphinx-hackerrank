@@ -75,14 +75,18 @@ class HackerRankBuilder(Builder):
         self.dlpath = ""
         self.secnumbers: dict[str, tuple[int, ...]] = {}
         self.fignumbers: dict[str, dict[str, tuple[int, ...]]] = {}
+        pygments_style: str | None = self.config["pygments_style"]
         self.highlighter = PygmentsBridge(
-            dest="html", stylename=self.config.pygments_style or "sphinx"
+            dest="html",
+            stylename=pygments_style
+            if pygments_style not in (None, "")
+            else "sphinx",
         )
 
     @property
     def math_renderer_name(self) -> str | None:
         """Use Sphinx's configured or unambiguous HTML math renderer."""
-        configured = self.config.html_math_renderer
+        configured: object = self.config["html_math_renderer"]
         if isinstance(configured, str):
             return configured
         registered = list(self._registry.html_inline_math_renderers)
@@ -93,10 +97,10 @@ class HackerRankBuilder(Builder):
 
     def _render_signature(self) -> str:
         """Fingerprint rendering options without loading an HTML theme."""
-        settings = {
-            value.name: value.value
-            for value in self.config.filter(rebuild={"env", "html"})
-        }
+        config_values: Iterator[tuple[str, object, object]] = (
+            self.config.filter(rebuild={"env", "html"})
+        )
+        settings = {name: value for name, value, _ in config_values}
         description = object_description(obj=(settings, sorted(self.tags)))
         digest = sha256()
         digest.update(description.encode(encoding="utf-8"))
@@ -182,7 +186,8 @@ class HackerRankBuilder(Builder):
         """
         settings = get_default_settings(HTMLWriter)
         settings.__dict__.update(self.env.settings)
-        settings.compact_lists = bool(self.config.html_compact_lists)
+        compact_lists: object = self.config["html_compact_lists"]
+        settings.compact_lists = bool(compact_lists)
         doctree.settings = settings
         self.current_docname = docname
         self.secnumbers = self.env.toc_secnumbers.get(docname, {})
@@ -203,14 +208,17 @@ class HackerRankBuilder(Builder):
         """Write a node captured by Sphinx's native HTML translator."""
         output_path = Path(self.outdir) / export.output_path
         output_path.parent.mkdir(parents=True, exist_ok=True)
+        source_url: str | None = self.config["hackerrank_source_url"]
+        source_suffix: str = self.config["hackerrank_source_suffix"]
+        source_anchors: bool = self.config["hackerrank_source_anchors"]
         _ = output_path.write_text(
             data=render_fragment(
                 html=html,
                 output_path=export.output_path,
                 docname=self.current_docname,
-                source_url=self.config.hackerrank_source_url,
-                source_suffix=self.config.hackerrank_source_suffix,
-                source_anchors=self.config.hackerrank_source_anchors,
+                source_url=source_url,
+                source_suffix=source_suffix,
+                source_anchors=source_anchors,
                 image_paths={
                     posixpath.join(self.imgpath, quote(string=filename)): Path(
                         self.srcdir

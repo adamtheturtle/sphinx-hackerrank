@@ -2,6 +2,7 @@
 
 from importlib.metadata import version
 from pathlib import Path
+from typing import Literal, Protocol, runtime_checkable
 
 from sphinx.application import Sphinx
 from sphinx.config import Config
@@ -22,12 +23,57 @@ __all__ = ["GuidelineExportNode"]
 __version__: str = version(distribution_name="sphinx-hackerrank")
 
 
+@runtime_checkable
+class _ConfigRegistrar(Protocol):
+    """The configuration registration interface used by this extension."""
+
+    def add_config_value(
+        self,
+        *,
+        name: str,
+        default: object,
+        rebuild: Literal["html"],
+        types: type[object] | tuple[type[object], ...],
+    ) -> None:
+        """Register an HTML configuration option."""
+        ...
+
+
 def _add_static_path(_app: Sphinx, config: Config) -> None:
     """Make the guideline assets available to themed HTML pages."""
+    static_paths: list[str] = config["html_static_path"]
     config.html_static_path = [
-        *config.html_static_path,
+        *static_paths,
         str(object=Path(__file__).parent / "static"),
     ]
+
+
+def _register_config(*, registrar: _ConfigRegistrar) -> None:
+    """Register settings for rendering and publishing."""
+    registrar.add_config_value(
+        name="hackerrank_source_url",
+        default=None,
+        rebuild="html",
+        types=(str, type(None)),
+    )
+    registrar.add_config_value(
+        name="hackerrank_source_suffix",
+        default=".html",
+        rebuild="html",
+        types=str,
+    )
+    registrar.add_config_value(
+        name="hackerrank_source_anchors",
+        default=True,
+        rebuild="html",
+        types=bool,
+    )
+    registrar.add_config_value(
+        name="hackerrank_api_operations",
+        default=[],
+        rebuild="html",
+        types=list,
+    )
 
 
 def setup(app: Sphinx) -> ExtensionMetadata:
@@ -40,32 +86,9 @@ def setup(app: Sphinx) -> ExtensionMetadata:
     _ = app.connect(
         event="doctree-resolved", callback=native_export_containers, priority=0
     )
-    app.add_config_value(
-        name="hackerrank_source_url",
-        default=None,
-        rebuild="html",
-        types=(str, type(None)),
-    )
-    app.add_config_value(
-        name="hackerrank_source_suffix",
-        default=".html",
-        rebuild="html",
-        types=str,
-    )
-    app.add_config_value(
-        name="hackerrank_source_anchors",
-        default=True,
-        rebuild="html",
-        types=bool,
-    )
     app.add_builder(builder=HackerRankBuilder)
     app.add_builder(builder=HackerRankPublishBuilder)
-    app.add_config_value(
-        name="hackerrank_api_operations",
-        default=[],
-        rebuild="html",
-        types=list,
-    )
+    _register_config(registrar=app)
     return {
         "version": __version__,
         "env_version": 3,
