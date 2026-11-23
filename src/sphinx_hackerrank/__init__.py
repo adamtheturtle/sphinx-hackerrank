@@ -30,11 +30,11 @@ class _ConfigRegistrar(Protocol):
 
     def add_config_value(
         self,
-        *,
-        name: str,
-        default: object,
-        rebuild: Literal["html"],
-        types: type[object] | tuple[type[object], ...],
+        _name: str,
+        _default: object,
+        _rebuild: Literal["html"],
+        _types: type[object] | tuple[type[object], ...],
+        /,
     ) -> None:
         """Register an HTML configuration option."""
         ...
@@ -44,7 +44,7 @@ def _add_static_path(_app: Sphinx, config: Config) -> None:
     """Make the guideline assets available to themed HTML pages."""
     static_paths: object = config["html_static_path"]
     assert is_metadata_sequence(static_paths)
-    config.html_static_path = [
+    config["html_static_path"] = [
         *static_paths,
         str(object=Path(__file__).parent / "static"),
     ]
@@ -53,29 +53,16 @@ def _add_static_path(_app: Sphinx, config: Config) -> None:
 def _register_config(*, registrar: _ConfigRegistrar) -> None:
     """Register settings for rendering and publishing."""
     registrar.add_config_value(
-        name="hackerrank_source_url",
-        default=None,
-        rebuild="html",
-        types=(str, type(None)),
+        "hackerrank_source_url", None, "html", (str, type(None))
     )
     registrar.add_config_value(
-        name="hackerrank_source_suffix",
-        default=".html",
-        rebuild="html",
-        types=str,
+        "hackerrank_source_suffix", ".html", "html", str
     )
+    source_anchors_default = True
     registrar.add_config_value(
-        name="hackerrank_source_anchors",
-        default=True,
-        rebuild="html",
-        types=bool,
+        "hackerrank_source_anchors", source_anchors_default, "html", bool
     )
-    registrar.add_config_value(
-        name="hackerrank_api_operations",
-        default=[],
-        rebuild="html",
-        types=list,
-    )
+    registrar.add_config_value("hackerrank_api_operations", [], "html", list)
 
 
 def setup(app: Sphinx) -> ExtensionMetadata:
