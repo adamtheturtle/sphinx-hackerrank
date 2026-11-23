@@ -13,6 +13,7 @@ from sphinx_hackerrank.exports import (
     GuidelineExportDirective,
     GuidelineExportNode,
     HackerRankDomain,
+    is_metadata_sequence,
     native_export_containers,
 )
 from sphinx_hackerrank.publisher import HackerRankPublishBuilder
@@ -41,7 +42,8 @@ class _ConfigRegistrar(Protocol):
 
 def _add_static_path(_app: Sphinx, config: Config) -> None:
     """Make the guideline assets available to themed HTML pages."""
-    static_paths: list[str] = config["html_static_path"]
+    static_paths: object = config["html_static_path"]
+    assert is_metadata_sequence(static_paths)
     config.html_static_path = [
         *static_paths,
         str(object=Path(__file__).parent / "static"),

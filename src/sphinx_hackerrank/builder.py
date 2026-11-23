@@ -75,11 +75,12 @@ class HackerRankBuilder(Builder):
         self.dlpath = ""
         self.secnumbers: dict[str, tuple[int, ...]] = {}
         self.fignumbers: dict[str, dict[str, tuple[int, ...]]] = {}
-        pygments_style: str | None = self.config["pygments_style"]
+        pygments_style: object = self.config["pygments_style"]
+        assert isinstance(pygments_style, (str, type(None)))
         self.highlighter = PygmentsBridge(
             dest="html",
             stylename=pygments_style
-            if pygments_style not in (None, "")
+            if isinstance(pygments_style, str) and pygments_style != ""
             else "sphinx",
         )
 
@@ -208,9 +209,12 @@ class HackerRankBuilder(Builder):
         """Write a node captured by Sphinx's native HTML translator."""
         output_path = Path(self.outdir) / export.output_path
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        source_url: str | None = self.config["hackerrank_source_url"]
-        source_suffix: str = self.config["hackerrank_source_suffix"]
-        source_anchors: bool = self.config["hackerrank_source_anchors"]
+        source_url: object = self.config["hackerrank_source_url"]
+        source_suffix: object = self.config["hackerrank_source_suffix"]
+        source_anchors: object = self.config["hackerrank_source_anchors"]
+        assert isinstance(source_url, (str, type(None)))
+        assert isinstance(source_suffix, str)
+        assert isinstance(source_anchors, bool)
         _ = output_path.write_text(
             data=render_fragment(
                 html=html,
