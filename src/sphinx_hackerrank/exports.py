@@ -1,10 +1,10 @@
 """Structured export boundaries and their persistent Sphinx inventory."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from dataclasses import dataclass
 from pathlib import PurePosixPath
-from typing import Any, ClassVar, override
+from typing import Any, ClassVar, TypeGuard, override
 
 from docutils import nodes
 from sphinx.addnodes import pending_xref
@@ -41,6 +41,11 @@ class Export:
             raise ValueError(message)
 
 
+def is_metadata_sequence(value: object, /) -> TypeGuard[Sequence[object]]:
+    """Check for a Docutils or Sphinx list of metadata values."""
+    return isinstance(value, (list, tuple))
+
+
 class GuidelineExportNode(nodes.container):
     """Content rendered both in its documentation page and as an
     export.
@@ -73,7 +78,11 @@ class GuidelineExportNode(nodes.container):
     @property
     def export(self) -> Export:
         """Read the metadata retained by Docutils copies and pickles."""
-        return Export(output_path=self["output_path"], name=self["name"])
+        output_path: object = self["output_path"]
+        name: object = self["name"]
+        assert isinstance(output_path, str)
+        assert isinstance(name, str)
+        return Export(output_path=output_path, name=name)
 
 
 class GuidelineExportDirective(SphinxDirective):
@@ -92,9 +101,11 @@ class GuidelineExportDirective(SphinxDirective):
         """
         self.assert_has_content()
         try:
+            name_option: object = self.options.get("name", "")
+            assert isinstance(name_option, str)
             node = GuidelineExportNode(
                 output_path=self.arguments[0],
-                name=self.options.get("name", ""),
+                name=name_option,
             )
         except ValueError as error:
             raise self.error(message=str(object=error)) from error
@@ -119,7 +130,7 @@ class HackerRankDomain(Domain):
     @property
     def exports(self) -> dict[str, list[Export]]:
         """Return the inventory stored in Sphinx's environment."""
-        exports = self.data["exports"]
+        exports: object = self.data["exports"]
         assert isinstance(exports, ExportInventory)
         return exports
 
@@ -143,7 +154,7 @@ class HackerRankDomain(Domain):
         self,
         docnames: AbstractSet[str],
         # Sphinx supplies each domain's open-ended serialized state.
-        otherdata: dict[str, Any],  # pyrefly: ignore[explicit-any]
+        otherdata: Mapping[str, object],
     ) -> None:
         """Merge inventory entries owned by parallel Sphinx readers."""
         other = otherdata["exports"]
@@ -213,5 +224,8 @@ def native_export_containers(
         container.line = node.line
         container.extend(item=node.children)
         node.replace_self(new=container)
-        for identifier in container["ids"]:
+        identifiers: object = container["ids"]
+        assert is_metadata_sequence(identifiers)
+        for identifier in identifiers:
+            assert isinstance(identifier, str)
             doctree.ids[identifier] = container

@@ -4,10 +4,11 @@ import json as jsonlib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import BinaryIO, override
+from typing import BinaryIO, TypeIs, override
 
 import pytest
 import respx
+from beartype.door import TypeHint
 from hackerrank.api import api_operations
 from hackerrank.transports import Transport, TransportResponse
 from hackerrank.types import JSONValue
@@ -16,6 +17,16 @@ from sphinx.testing.util import SphinxTestApp
 
 from sphinx_hackerrank.publisher import publish_operations
 from tests.builds import write_sources
+
+
+def _is_json_object(value: object, /) -> TypeIs[dict[str, object]]:
+    """Check that a decoded JSON object has string keys."""
+    return TypeHint(hint=dict[str, object]).is_bearable(obj=value)
+
+
+def _is_json_array(value: object, /) -> TypeIs[list[object]]:
+    """Check that decoded JSON represents an array."""
+    return isinstance(value, list)
 
 
 def test_template_results_file_preserves_wire_data(
@@ -68,12 +79,17 @@ def test_template_results_file_preserves_wire_data(
             )
             app.build()
         assert app.statuscode == 0
-        results = jsonlib.loads(
+        results: object = jsonlib.loads(
             s=(Path(app.outdir) / "hackerrank-api-results.json").read_text(
                 encoding="utf-8"
             )
         )
-        assert [result["data"] for result in results] == [page, templates[1]]
+        assert _is_json_array(results)
+        data: list[object] = []
+        for result in results:
+            assert _is_json_object(result)
+            data.append(result["data"])
+        assert data == [page, templates[1]]
     finally:
         app.cleanup()
 
@@ -110,7 +126,7 @@ class PublishingTransport(Transport):
 
 
 def test_every_operation_is_publishable(tmp_path: Path) -> None:
-    """Every v3, ATS and SCIM operation reaches the documented transport
+    """Every API operation reaches the documented transport
     route.
     """
     transport = PublishingTransport(status=200, requests=[])
@@ -337,10 +353,13 @@ def test_normal_and_publish_builders(tmp_path: Path) -> None:
                     )
                     == []
                 )
-                catalogue = jsonlib.loads(
+                catalogue: object = jsonlib.loads(
                     s=(output / "hackerrank-api-catalogue.json").read_text()
                 )
-                assert len(catalogue["operations"]) == len(api_operations())
+                assert _is_json_object(catalogue)
+                operations = catalogue["operations"]
+                assert _is_json_array(operations)
+                assert len(operations) == len(api_operations())
         finally:
             app.cleanup()
 
