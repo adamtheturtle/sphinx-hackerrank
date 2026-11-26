@@ -221,7 +221,9 @@ def test_exports_refresh_incremental_outputs(
     ]
     assert json.loads(s=inventory.read_text(encoding="utf-8")) == expected
     inventory.unlink()
+    fragment_time = output.stat().st_mtime_ns
     app.build()
+    assert output.stat().st_mtime_ns == fragment_time
     assert json.loads(s=inventory.read_text(encoding="utf-8")) == expected
     output.unlink()
     index.unlink()

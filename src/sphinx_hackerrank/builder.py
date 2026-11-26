@@ -126,11 +126,9 @@ class HackerRankBuilder(Builder):
         except OSError:
             previous = None
         rebuild = previous is None or previous != self._render_signature()
-        preview_dir = Path(self.outdir) / "interviewer-guidelines"
-        index_missing = not all(
-            (preview_dir / filename).is_file()
-            for filename in ("index.html", "index.json")
-        )
+        index_missing = not (
+            Path(self.outdir) / "interviewer-guidelines" / "index.html"
+        ).is_file()
         for docname, targets in sorted(exports.items()):
             if not bool(targets):
                 continue
