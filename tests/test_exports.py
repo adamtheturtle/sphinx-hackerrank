@@ -1,5 +1,6 @@
 """Export boundaries own metadata independently of question mappings."""
 
+import json
 from collections.abc import Callable
 from pathlib import Path
 
@@ -210,6 +211,18 @@ def test_exports_refresh_incremental_outputs(
     index = Path(app.outdir) / "interviewer-guidelines/index.html"
     assert 'href="../exports/review.html"' in index.read_text()
     assert "Second review" in index.read_text()
+    inventory = index.with_suffix(suffix=".json")
+    expected = [
+        {
+            "docname": "index",
+            "name": "Second review",
+            "output_path": "exports/review.html",
+        }
+    ]
+    assert json.loads(s=inventory.read_text(encoding="utf-8")) == expected
+    inventory.unlink()
+    app.build()
+    assert json.loads(s=inventory.read_text(encoding="utf-8")) == expected
     output.unlink()
     index.unlink()
     app.build()
@@ -218,6 +231,7 @@ def test_exports_refresh_incremental_outputs(
     _ = recipe.write_text(data="Index\n=====\n\nNo exports.\n")
     app.build()
     assert "Second review" not in index.read_text()
+    assert json.loads(s=inventory.read_text(encoding="utf-8")) == []
 
 
 def test_parallel_inventory_merging(
@@ -296,7 +310,7 @@ def test_parallel_exports_match_serial(
             }
         )
         app.cleanup()
-    expected_count = 8
+    expected_count = 9
     assert len(outputs[0]) == expected_count
     assert outputs[0] == outputs[1]
     assert b"data:image/svg+xml;base64," in outputs[1]["exports/page0.html"]
