@@ -306,6 +306,7 @@ def test_only_export_nodes_are_rendered(
     assert files == {
         "exports/review.html",
         "interviewer-guidelines/index.html",
+        "interviewer-guidelines/index.json",
     }
     assert app.warning.getvalue() == ""
 

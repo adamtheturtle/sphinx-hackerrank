@@ -1,5 +1,6 @@
 """Build HackerRank fragments using Sphinx's standard HTML renderer."""
 
+import json
 import posixpath
 from collections.abc import Iterator
 from collections.abc import Set as AbstractSet
@@ -236,17 +237,31 @@ class HackerRankBuilder(Builder):
 
     @override
     def finish(self) -> None:
-        """Add a local preview index linking to each Interviewer Guideline."""
+        """Index the exported guidelines for readers and other tools."""
         _ = (Path(self.doctreedir) / "hackerrank-rendering.sha256").write_text(
             data=self._render_signature(), encoding="utf-8"
         )
         preview_dir = Path(self.outdir) / "interviewer-guidelines"
         preview_dir.mkdir(parents=True, exist_ok=True)
         exports = export_inventory(env=self.env)
-        links = "\n".join(
-            _preview_link(export=target)
+        ordered_exports = [
+            (docname, target)
             for docname in sorted(exports)
             for target in exports[docname]
+        ]
+        inventory = [
+            {
+                "docname": docname,
+                "name": target.name,
+                "output_path": target.output_path,
+            }
+            for docname, target in ordered_exports
+        ]
+        _ = (preview_dir / "index.json").write_text(
+            data=json.dumps(obj=inventory, indent=2) + "\n", encoding="utf-8"
+        )
+        links = "\n".join(
+            _preview_link(export=target) for _, target in ordered_exports
         )
         _ = (preview_dir / "index.html").write_text(
             data=(
